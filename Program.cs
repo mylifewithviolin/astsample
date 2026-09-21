@@ -1,60 +1,87 @@
 using System;
+using System.Text;
 using ReMindAst;
 using ReMindBackend;
 using ReMindParser;
 
 class Program
 {
-    const string ReMindSourceCode = @"";
-static void Main(string[] args)
-{
-  var projectRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", ".."));
-    var caseName = args.Length > 0 && args[0].Equals("variable", StringComparison.OrdinalIgnoreCase)
-      ? "variable"
-      : args.Length > 0 && args[0].Equals("bubblesort", StringComparison.OrdinalIgnoreCase)
-        ? "bubblesort"
-        : "helloworld";
-  var sourceFilePath = Path.Combine(projectRoot, "sourceFiles", $"{caseName}cs.aoi");
-  var source = File.Exists(sourceFilePath)
-      ? File.ReadAllText(sourceFilePath)
-      : ReMindSourceCode;
+  static void Main(string[] args)
+  {
+    if (args.Length != 2)
+    {
+      Console.WriteLine(Messages.E00001);
+      return;
+    }
 
-  // 1. 字句解析
-  var lexer = new Lexer(source);
+    var sourceFilePath = args[0];
+    if (!File.Exists(sourceFilePath))
+    {
+      Console.WriteLine(Messages.E00002 + sourceFilePath);
+      return;
+    }
+
+    string source;
+    try
+    {
+      source = File.ReadAllText(sourceFilePath, Encoding.UTF8);
+    }
+    catch (Exception ex)
+    {
+      Console.WriteLine(Messages.E00003 + ex.Message);
+      return;
+    }
+
+    var targetFilePath = args[1];
+    var targetExtension = Path.GetExtension(targetFilePath);
+    if (string.IsNullOrEmpty(targetExtension))
+    {
+      Console.WriteLine(Messages.E00008);
+      return;
+    }
+
+    var lexer = new Lexer(source);
     var tokens = lexer.Tokenize();
-
-  // 2. 構文解析
     var parser = new Parser(tokens);
     var ast = parser.ParseCompilationUnit();
-
-  // 3. 意味解析
     var resolver = new SemanticResolver(ast);
     resolver.Resolve();
+    var programIR = new IRBuilder().Build(ast);
 
-  // 4. 中間表現の構築
-    var irBuilder = new IRBuilder();
-  var programIR = irBuilder.Build(ast);
+    string output;
+    switch (targetExtension.ToLowerInvariant())
+    {
+      case ".cs_":
+        output = new CSharpCodeGenerator().Generate(programIR);
+        break;
+      case ".java":
+        output = new JavaCodeGenerator().Generate(programIR);
+        break;
+      case ".vb":
+        output = new VbNetCodeGenerator().Generate(programIR);
+        break;
+      default:
+        Console.WriteLine(Messages.E00004);
+        return;
+    }
 
-  // 5. コード生成（既定ターゲット: C#）
-    var generator = new CSharpCodeGenerator();
-  string output = generator.Generate(programIR);
+    try
+    {
+      var outputDirectory = Path.GetDirectoryName(targetFilePath);
+      if (!string.IsNullOrEmpty(outputDirectory))
+      {
+        Directory.CreateDirectory(outputDirectory);
+      }
 
-  // 6. 標準出力
-  Console.WriteLine(output);
-  var generatedFilePath = Path.Combine(projectRoot, "transcompiledFiles", $"{caseName}.generated.cs_");
-  File.WriteAllText(generatedFilePath, output);
+      File.WriteAllText(targetFilePath, output, Encoding.UTF8);
+    }
+    catch (Exception ex)
+    {
+      Console.WriteLine(Messages.E00005 + ex.Message);
+      return;
+    }
 
-  var expectedFilePath = Path.Combine(projectRoot, "transcompiledFiles", $"{caseName}.cs_");
-  var verificationResultPath = Path.Combine(projectRoot, "transcompiledFiles", $"{caseName}.verification.txt");
-  if (File.Exists(expectedFilePath))
-  {
-      CompareGeneratedOutput(generatedFilePath, expectedFilePath);
+    Console.WriteLine(output);
   }
-  File.WriteAllText(verificationResultPath, string.Empty);
-}
-
-static void CompareGeneratedOutput(string generatedFilePath, string expectedFilePath)
-{
-}
 
 }

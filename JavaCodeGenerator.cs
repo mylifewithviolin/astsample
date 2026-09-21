@@ -45,24 +45,171 @@ namespace ReMindBackend
 
         public string Generate(ProgramIR program)
         {
-            return string.Empty;
+            foreach (var import in program.Imports)
+            {
+                _w.WriteLine($"import {import};");
+            }
+            if (program.Imports.Count > 0)
+            {
+                _w.WriteLine();
+            }
+
+            foreach (var namespaceName in program.Namespaces)
+            {
+                _w.WriteLine($"package {namespaceName};");
+                _w.WriteLine();
+            }
+
+            foreach (var classIR in program.Classes)
+            {
+                GenerateClass(classIR);
+                _w.WriteLine();
+            }
+
+            return _w.ToString();
         }
 
         private void GenerateClass(ClassIR classIR)
         {
+            GenerateDocumentation(classIR.Documentation);
+            _w.WriteLine($"public class {classIR.Name}");
+            _w.WriteLine("{");
+            _w.Indent();
+
+            foreach (var field in classIR.Fields)
+            {
+                _w.WriteLine($"{string.Join(" ", field.Modifiers)} {MapType(field.Type)} {field.Name};");
+            }
+
+            foreach (var method in classIR.Methods)
+            {
+                GenerateMethod(method);
+                _w.WriteLine();
+            }
+
+            _w.Unindent();
+            _w.WriteLine("}");
         }
 
         private void GenerateMethod(MethodIR methodIR)
         {
+            GenerateDocumentation(methodIR.Documentation);
+            _w.WriteLine($"public static {MapType(methodIR.ReturnType)} {methodIR.Name}({string.Join(", ", methodIR.Parameters.Select(MapParameter))})");
+            _w.WriteLine("{");
+            _w.Indent();
+
+            foreach (var statement in methodIR.Body.Statements)
+            {
+                GenerateStatement(statement);
+            }
+
+            _w.Unindent();
+            _w.WriteLine("}");
         }
 
         private void GenerateStatement(StatementIR stmt)
         {
+            switch (stmt)
+            {
+                case VariableDeclarationIR variable:
+                    _w.WriteLine($"{MapType(variable.Type)} {variable.Name} = {GenerateExpression(variable.Initializer)};");
+                    break;
+                case AssignmentIR assignment:
+                    _w.WriteLine($"{assignment.Target} = {GenerateExpression(assignment.Value)};");
+                    break;
+                case CallIR call:
+                    _w.WriteLine($"{MapCall(call.MethodName)}({string.Join(", ", call.Arguments.Select(GenerateExpression))});");
+                    break;
+                case ExpressionStatementIR expression:
+                    _w.WriteLine($"{GenerateExpression(expression.Expression)};");
+                    break;
+                case IfIR conditional:
+                    _w.WriteLine($"if ({GenerateExpression(conditional.Condition)})");
+                    _w.WriteLine("{");
+                    _w.Indent();
+                    foreach (var nested in conditional.ThenBlock.Statements)
+                    {
+                        GenerateStatement(nested);
+                    }
+                    _w.Unindent();
+                    _w.WriteLine("}");
+                    break;
+                case WhileIR loop:
+                    _w.WriteLine($"while ({GenerateExpression(loop.Condition)})");
+                    _w.WriteLine("{");
+                    _w.Indent();
+                    foreach (var nested in loop.Body.Statements)
+                    {
+                        GenerateStatement(nested);
+                    }
+                    _w.Unindent();
+                    _w.WriteLine("}");
+                    break;
+                case ForIR loop:
+                    _w.WriteLine($"for ({GenerateInlineStatement(loop.Initializer)}; {GenerateExpression(loop.Condition)}; {GenerateExpression(loop.Iterator)})");
+                    _w.WriteLine("{");
+                    _w.Indent();
+                    foreach (var nested in loop.Body.Statements)
+                    {
+                        GenerateStatement(nested);
+                    }
+                    _w.Unindent();
+                    _w.WriteLine("}");
+                    break;
+            }
         }
 
         private string GenerateExpression(ExpressionIR expr)
         {
-            return string.Empty;
+            return expr switch
+            {
+                IdentifierIR identifier => identifier.Name,
+                LiteralIR literal => literal.Value,
+                BinaryIR binary => $"{GenerateExpression(binary.Left)} {binary.Operator} {GenerateExpression(binary.Right)}",
+                UnaryIR unary => $"{GenerateExpression(unary.Operand)}{unary.Operator}",
+                CallExpressionIR call => $"{MapCall(call.MethodName)}({string.Join(", ", call.Arguments.Select(GenerateExpression))})",
+                MemberAccessIR member => $"{GenerateExpression(member.Target)}.{member.MemberName}",
+                ArrayAccessIR array => $"{GenerateExpression(array.Array)}[{GenerateExpression(array.Index)}]",
+                ArrayLiteralIR array => $"new {MapType(array.ElementType)}[] {{ {string.Join(", ", array.Elements.Select(GenerateExpression))} }}",
+                _ => string.Empty
+            };
+        }
+
+        private string GenerateInlineStatement(StatementIR statement)
+        {
+            return statement is VariableDeclarationIR variable
+                ? $"{MapType(variable.Type)} {variable.Name} = {GenerateExpression(variable.Initializer)}"
+                : string.Empty;
+        }
+
+        private string MapParameter(string parameter)
+        {
+            var parts = parameter.Split(' ', 2);
+            return parts.Length == 2 ? $"{MapType(parts[0])} {parts[1]}" : parameter;
+        }
+
+        private string MapCall(string methodName)
+        {
+            return methodName == "コンソール.一行表示する" ? "System.out.println" : methodName;
+        }
+
+        private void GenerateDocumentation(DocumentationIR? documentation)
+        {
+            if (documentation == null)
+            {
+                return;
+            }
+
+            _w.WriteLine("/**");
+            if (!string.IsNullOrEmpty(documentation.NameJa))
+            {
+                _w.WriteLine($" * {documentation.NameJa}");
+            }
+            foreach (var parameter in documentation.Parameters)
+            {
+                _w.WriteLine($" * @param {parameter.Name} {parameter.Description}");
+            }
+            _w.WriteLine(" */");
         }
 
         private void GenerateClass(ClassDeclaration cls)

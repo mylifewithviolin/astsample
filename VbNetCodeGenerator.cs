@@ -47,24 +47,160 @@ namespace ReMindBackend
 
         public string Generate(ProgramIR program)
         {
-            return string.Empty;
+            foreach (var import in program.Imports)
+            {
+                _w.WriteLine($"Imports {import}");
+            }
+            if (program.Imports.Count > 0)
+            {
+                _w.WriteLine();
+            }
+
+            foreach (var namespaceName in program.Namespaces)
+            {
+                _w.WriteLine($"Namespace {namespaceName}");
+                _w.Indent();
+            }
+
+            foreach (var classIR in program.Classes)
+            {
+                GenerateClass(classIR);
+                _w.WriteLine();
+            }
+
+            for (var index = 0; index < program.Namespaces.Count; index++)
+            {
+                _w.Unindent();
+                _w.WriteLine("End Namespace");
+            }
+
+            return _w.ToString();
         }
 
         private void GenerateClass(ClassIR classIR)
         {
+            GenerateDocumentation(classIR.Documentation);
+            _w.WriteLine($"Public Module {classIR.Name}");
+            _w.Indent();
+
+            foreach (var field in classIR.Fields)
+            {
+                _w.WriteLine($"{string.Join(" ", field.Modifiers.Select(MapModifier))} {field.Name} As {MapType(field.Type)}");
+            }
+
+            foreach (var method in classIR.Methods)
+            {
+                GenerateMethod(method);
+                _w.WriteLine();
+            }
+
+            _w.Unindent();
+            _w.WriteLine("End Module");
         }
 
         private void GenerateMethod(MethodIR methodIR)
         {
+            GenerateDocumentation(methodIR.Documentation);
+            var parameters = string.Join(", ", methodIR.Parameters.Select(MapParameter));
+            if (methodIR.ReturnType == "void")
+            {
+                _w.WriteLine($"Public Shared Sub {methodIR.Name}({parameters})");
+            }
+            else
+            {
+                _w.WriteLine($"Public Shared Function {methodIR.Name}({parameters}) As {MapType(methodIR.ReturnType)}");
+            }
+
+            _w.Indent();
+            foreach (var statement in methodIR.Body.Statements)
+            {
+                GenerateStatement(statement);
+            }
+            _w.Unindent();
+            _w.WriteLine(methodIR.ReturnType == "void" ? "End Sub" : "End Function");
         }
 
         private void GenerateStatement(StatementIR stmt)
         {
+            switch (stmt)
+            {
+                case VariableDeclarationIR variable:
+                    _w.WriteLine($"Dim {variable.Name} As {MapType(variable.Type)} = {GenerateExpression(variable.Initializer)}");
+                    break;
+                case AssignmentIR assignment:
+                    _w.WriteLine($"{assignment.Target} = {GenerateExpression(assignment.Value)}");
+                    break;
+                case CallIR call:
+                    _w.WriteLine($"{MapCall(call.MethodName)}({string.Join(", ", call.Arguments.Select(GenerateExpression))})");
+                    break;
+                case ExpressionStatementIR expression:
+                    _w.WriteLine(GenerateExpression(expression.Expression));
+                    break;
+                case IfIR conditional:
+                    _w.WriteLine($"If {GenerateExpression(conditional.Condition)} Then");
+                    _w.Indent();
+                    foreach (var nested in conditional.ThenBlock.Statements)
+                    {
+                        GenerateStatement(nested);
+                    }
+                    _w.Unindent();
+                    _w.WriteLine("End If");
+                    break;
+                case WhileIR loop:
+                    _w.WriteLine($"While {GenerateExpression(loop.Condition)}");
+                    _w.Indent();
+                    foreach (var nested in loop.Body.Statements)
+                    {
+                        GenerateStatement(nested);
+                    }
+                    _w.Unindent();
+                    _w.WriteLine("End While");
+                    break;
+            }
         }
 
         private string GenerateExpression(ExpressionIR expr)
         {
-            return string.Empty;
+            return expr switch
+            {
+                IdentifierIR identifier => identifier.Name,
+                LiteralIR literal => literal.Value,
+                BinaryIR binary => $"{GenerateExpression(binary.Left)} {binary.Operator} {GenerateExpression(binary.Right)}",
+                UnaryIR unary => $"{GenerateExpression(unary.Operand)} {MapUnaryOperator(unary.Operator)}",
+                CallExpressionIR call => $"{MapCall(call.MethodName)}({string.Join(", ", call.Arguments.Select(GenerateExpression))})",
+                MemberAccessIR member => $"{GenerateExpression(member.Target)}.{member.MemberName}",
+                ArrayAccessIR array => $"{GenerateExpression(array.Array)}({GenerateExpression(array.Index)})",
+                ArrayLiteralIR array => $"{{ {string.Join(", ", array.Elements.Select(GenerateExpression))} }}",
+                _ => ""
+            };
+        }
+
+        private string MapParameter(string parameter)
+        {
+            var parts = parameter.Split(' ', 2);
+            return parts.Length == 2 ? $"{parts[1]} As {MapType(parts[0])}" : parameter;
+        }
+
+        private string MapCall(string methodName)
+        {
+            return methodName == "コンソール.一行表示する" ? "Console.WriteLine" : methodName;
+        }
+
+        private void GenerateDocumentation(DocumentationIR? documentation)
+        {
+            if (documentation == null)
+            {
+                return;
+            }
+
+            if (!string.IsNullOrEmpty(documentation.NameJa))
+            {
+                _w.WriteLine($"''' <summary>{documentation.NameJa}</summary>");
+            }
+            foreach (var parameter in documentation.Parameters)
+            {
+                _w.WriteLine($"''' <param name=\"{parameter.Name}\">{parameter.Description}</param>");
+            }
         }
 
         private void GenerateClass(ClassDeclaration cls)
@@ -191,7 +327,7 @@ namespace ReMindBackend
 
             // int i = 0;
             var varName = fs.Initializer.NameEn;
-            var startExpr = GenerateExpression(fs.Initializer.Initializer);
+            var startExpr = GenerateExpression(fs.Initializer.Initializer!);
 
             // i < array.Length
             // → To array.Length - 1 を仮定
