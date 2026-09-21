@@ -1,0 +1,14 @@
+C:\developments\cs12\astsample\obj\Debug\net8.0\astsample.GeneratedMSBuildEditorConfig.editorconfig
+C:\developments\cs12\astsample\obj\Debug\net8.0\astsample.AssemblyInfoInputs.cache
+C:\developments\cs12\astsample\obj\Debug\net8.0\astsample.AssemblyInfo.cs
+C:\developments\cs12\astsample\obj\Debug\net8.0\astsample.csproj.CoreCompileInputs.cache
+C:\developments\cs12\astsample\bin\Debug\net8.0\astsample.exe
+C:\developments\cs12\astsample\bin\Debug\net8.0\astsample.deps.json
+C:\developments\cs12\astsample\bin\Debug\net8.0\astsample.runtimeconfig.json
+C:\developments\cs12\astsample\bin\Debug\net8.0\astsample.dll
+C:\developments\cs12\astsample\bin\Debug\net8.0\astsample.pdb
+C:\developments\cs12\astsample\obj\Debug\net8.0\astsample.dll
+C:\developments\cs12\astsample\obj\Debug\net8.0\refint\astsample.dll
+C:\developments\cs12\astsample\obj\Debug\net8.0\astsample.pdb
+C:\developments\cs12\astsample\obj\Debug\net8.0\astsample.genruntimeconfig.cache
+C:\developments\cs12\astsample\obj\Debug\net8.0\ref\astsample.dll

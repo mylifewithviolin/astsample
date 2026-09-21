@@ -1,0 +1,60 @@
+▽名前空間 BubbleSort
+    /**
+    * Program
+    */
+    ▽public クラス プログラム型
+
+        /**
+        * Main
+        * @param 引数 args
+        */
+        ▽static void メイン(string[] 引数)
+            /** array */
+            ・int[] 配列 = 15,13,9,6,4,1
+           
+            /** index */
+            □バブルソートする(配列)
+
+            〇int i=0,i<配列.Length,i++ 繰り返す
+            　□コンソール表示する(配列[i])
+            〇ここまで
+        △
+            
+        /** BubbleSort
+         * @param 配列 array
+         */
+        ▽public void バブルソートする(int[] 配列)
+          /** i */
+          ・int 外側 = 0
+          〇外側 < 配列.Length の間は繰り返す
+            /** j */
+            ・int 内側 = 0
+            〇内側 < 配列.Length - 外側 - 1 の間は繰り返す
+              ◇配列[内側] > 配列[内側 + 1] の場合
+                /** temp */
+                ・int 一時 = 配列[内側]
+                □配列[内側] = 配列[内側 + 1]
+                □配列[内側 + 1] = 一時
+              ◇ここまで
+              □内側++
+            〇ここまで
+            □外側++
+          〇ここまで
+        △
+
+        /**
+        * ConsoleOut
+        * @param 引数2 dispStr
+        */
+        ▽static void コンソール表示する(string 引数2)
+            □コンソール.一行表示する(引数2)
+        △
+    △
+△
+
+■インポートする System
+▼public static class コンソール Console
+    ▼public static 一行表示する(string? value)
+        ■WriteLine (string? value)
+    ▲
+▲
