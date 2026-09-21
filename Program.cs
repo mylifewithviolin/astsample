@@ -74,6 +74,8 @@ class Program
       }
 
       File.WriteAllText(targetFilePath, output, Encoding.UTF8);
+
+      CompareWithReferenceFile(targetFilePath);
     }
     catch (Exception ex)
     {
@@ -82,6 +84,39 @@ class Program
     }
 
     Console.WriteLine(output);
+  }
+
+  private static void CompareWithReferenceFile(string targetFilePath)
+  {
+    var projectRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", ".."));
+    var referenceFileName = Path.GetFileName(targetFilePath);
+    var referenceFilePath = Path.Combine(projectRoot, "referrenceFiles", referenceFileName);
+    if (!File.Exists(referenceFilePath))
+    {
+      Console.WriteLine($"Reference comparison skipped: {referenceFileName}");
+      return;
+    }
+
+    var generated = NormalizeForComparison(File.ReadAllText(targetFilePath, Encoding.UTF8));
+    var reference = NormalizeForComparison(File.ReadAllText(referenceFilePath, Encoding.UTF8));
+    if (string.Equals(generated, reference, StringComparison.Ordinal))
+    {
+      Console.WriteLine($"Reference comparison passed: {referenceFileName}");
+      return;
+    }
+
+    Console.WriteLine($"Reference comparison differs: {referenceFileName}");
+    if (generated.Contains("未対応", StringComparison.Ordinal) ||
+        reference.Contains("未対応", StringComparison.Ordinal) ||
+        generated.Contains("'''", StringComparison.Ordinal) != reference.Contains("'''", StringComparison.Ordinal))
+    {
+      Console.WriteLine($"Comment or unsupported-output difference remains: {referenceFileName}");
+    }
+  }
+
+  private static string NormalizeForComparison(string content)
+  {
+    return content.Replace("\r\n", "\n", StringComparison.Ordinal).TrimEnd();
   }
 
 }

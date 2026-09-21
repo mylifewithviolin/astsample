@@ -125,10 +125,14 @@ namespace ReMindBackend
             switch (stmt)
             {
                 case VariableDeclarationIR variable:
+                    GenerateDocumentation(variable.Documentation);
                     _w.WriteLine($"Dim {variable.Name} As {MapType(variable.Type)} = {GenerateExpression(variable.Initializer)}");
                     break;
                 case AssignmentIR assignment:
-                    _w.WriteLine($"{assignment.Target} = {GenerateExpression(assignment.Value)}");
+                    var target = assignment.TargetExpression == null
+                        ? assignment.Target
+                        : GenerateExpression(assignment.TargetExpression);
+                    _w.WriteLine($"{target} = {GenerateExpression(assignment.Value)}");
                     break;
                 case CallIR call:
                     _w.WriteLine($"{MapCall(call.MethodName)}({string.Join(", ", call.Arguments.Select(GenerateExpression))})");
@@ -144,6 +148,16 @@ namespace ReMindBackend
                         GenerateStatement(nested);
                     }
                     _w.Unindent();
+                    if (conditional.ElseBlock is { Statements.Count: > 0 })
+                    {
+                        _w.WriteLine("Else");
+                        _w.Indent();
+                        foreach (var nested in conditional.ElseBlock.Statements)
+                        {
+                            GenerateStatement(nested);
+                        }
+                        _w.Unindent();
+                    }
                     _w.WriteLine("End If");
                     break;
                 case WhileIR loop:
@@ -156,7 +170,31 @@ namespace ReMindBackend
                     _w.Unindent();
                     _w.WriteLine("End While");
                     break;
+                case ForIR loop:
+                    GenerateFor(loop);
+                    break;
             }
+        }
+
+        private void GenerateFor(ForIR loop)
+        {
+            if (loop.Initializer is not VariableDeclarationIR variable ||
+                loop.Condition is not BinaryIR condition ||
+                loop.Iterator is not UnaryIR iterator ||
+                iterator.Operator != "++")
+            {
+                _w.WriteLine("' 未対応のFor構文");
+                return;
+            }
+
+            _w.WriteLine($"For {variable.Name} As {MapType(variable.Type)} = {GenerateExpression(variable.Initializer)} To {GenerateExpression(condition.Right)} - 1");
+            _w.Indent();
+            foreach (var statement in loop.Body.Statements)
+            {
+                GenerateStatement(statement);
+            }
+            _w.Unindent();
+            _w.WriteLine("Next");
         }
 
         private string GenerateExpression(ExpressionIR expr)

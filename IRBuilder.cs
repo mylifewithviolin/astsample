@@ -99,9 +99,9 @@ namespace ReMindAst
                         MemberAccessExpression memberAccess => memberAccess.MemberName,
                         _ => ""
                     },
-                    TargetExpression = assignment.Left is ElementAccessExpression
-                        ? BuildExpression(assignment.Left)
-                        : null,
+                    TargetExpression = assignment.Left is IdentifierExpression or MemberAccessExpression
+                        ? null
+                        : BuildExpression(assignment.Left),
                     Value = BuildExpression(assignment.Right)
                 },
                 LocalVariableDeclaration localVariable => new VariableDeclarationIR

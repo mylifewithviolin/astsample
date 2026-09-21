@@ -45,18 +45,18 @@ namespace ReMindBackend
 
         public string Generate(ProgramIR program)
         {
-            foreach (var import in program.Imports)
-            {
-                _w.WriteLine($"import {import};");
-            }
-            if (program.Imports.Count > 0)
-            {
-                _w.WriteLine();
-            }
-
             foreach (var namespaceName in program.Namespaces)
             {
                 _w.WriteLine($"package {namespaceName};");
+                _w.WriteLine();
+            }
+
+            foreach (var import in program.Imports)
+            {
+                _w.WriteLine($"import {MapImport(import)};");
+            }
+            if (program.Imports.Count > 0)
+            {
                 _w.WriteLine();
             }
 
@@ -112,10 +112,14 @@ namespace ReMindBackend
             switch (stmt)
             {
                 case VariableDeclarationIR variable:
+                    GenerateDocumentation(variable.Documentation);
                     _w.WriteLine($"{MapType(variable.Type)} {variable.Name} = {GenerateExpression(variable.Initializer)};");
                     break;
                 case AssignmentIR assignment:
-                    _w.WriteLine($"{assignment.Target} = {GenerateExpression(assignment.Value)};");
+                    var target = assignment.TargetExpression == null
+                        ? assignment.Target
+                        : GenerateExpression(assignment.TargetExpression);
+                    _w.WriteLine($"{target} = {GenerateExpression(assignment.Value)};");
                     break;
                 case CallIR call:
                     _w.WriteLine($"{MapCall(call.MethodName)}({string.Join(", ", call.Arguments.Select(GenerateExpression))});");
@@ -168,7 +172,9 @@ namespace ReMindBackend
                 BinaryIR binary => $"{GenerateExpression(binary.Left)} {binary.Operator} {GenerateExpression(binary.Right)}",
                 UnaryIR unary => $"{GenerateExpression(unary.Operand)}{unary.Operator}",
                 CallExpressionIR call => $"{MapCall(call.MethodName)}({string.Join(", ", call.Arguments.Select(GenerateExpression))})",
-                MemberAccessIR member => $"{GenerateExpression(member.Target)}.{member.MemberName}",
+                MemberAccessIR member => member.MemberName == "Length"
+                    ? $"{GenerateExpression(member.Target)}.length"
+                    : $"{GenerateExpression(member.Target)}.{member.MemberName}",
                 ArrayAccessIR array => $"{GenerateExpression(array.Array)}[{GenerateExpression(array.Index)}]",
                 ArrayLiteralIR array => $"new {MapType(array.ElementType)}[] {{ {string.Join(", ", array.Elements.Select(GenerateExpression))} }}",
                 _ => string.Empty
@@ -191,6 +197,11 @@ namespace ReMindBackend
         private string MapCall(string methodName)
         {
             return methodName == "コンソール.一行表示する" ? "System.out.println" : methodName;
+        }
+
+        private string MapImport(string import)
+        {
+            return import == "System" ? "java.lang.System" : import;
         }
 
         private void GenerateDocumentation(DocumentationIR? documentation)
@@ -307,9 +318,9 @@ namespace ReMindBackend
 
         private void GenerateFor(ForStatement fs)
         {
-            var init = $"{MapType(fs.Initializer.Type)} {fs.Initializer.NameEn} = {GenerateExpression(fs.Initializer.Initializer)}";
-            var cond = GenerateExpression(fs.Condition);
-            var iter = GenerateExpression(fs.Iterator);
+            var init = $"{MapType(fs.Initializer!.Type)} {fs.Initializer.NameEn} = {GenerateExpression(fs.Initializer.Initializer!)}";
+            var cond = GenerateExpression(fs.Condition!);
+            var iter = GenerateExpression(fs.Iterator!);
 
             _w.WriteLine($"for ({init}; {cond}; {iter}) " + "{");
             _w.Indent();
@@ -415,7 +426,9 @@ namespace ReMindBackend
             return t switch
             {
                 "string" => "String",
+                "string?" => "String",
                 "string[]" => "String[]",
+                "string?[]" => "String[]",
                 "int" => "int",
                 "int[]" => "int[]",
                 "void" => "void",
