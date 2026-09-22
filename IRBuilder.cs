@@ -121,6 +121,10 @@ namespace ReMindAst
                 IfStatement ifStatement => BuildIfStatement(ifStatement),
                 WhileStatement whileStatement => BuildWhileStatement(whileStatement),
                 ForStatement forStatement => BuildForStatement(forStatement),
+                ReturnStatement returnStatement => new ReturnIR
+                {
+                    Value = returnStatement.Value != null ? BuildExpression(returnStatement.Value) : null
+                },
                 _ => throw new System.NotSupportedException()
             };
         }

@@ -271,8 +271,28 @@ public class Lexer
 
         if (currentChar == '=')
         {
+            var startLine = _line;
+            var startColumn = _column;
             Advance();
-            return new Token(TokenType.Assign, "=", _line, _column);
+            if (!IsEnd() && Peek() == '=')
+            {
+                Advance();
+                return new Token(TokenType.Operator, "==", startLine, startColumn);
+            }
+            return new Token(TokenType.Assign, "=", startLine, startColumn);
+        }
+
+        if (currentChar == '!')
+        {
+            var startLine = _line;
+            var startColumn = _column;
+            Advance();
+            if (!IsEnd() && Peek() == '=')
+            {
+                Advance();
+                return new Token(TokenType.Operator, "!=", startLine, startColumn);
+            }
+            throw new InvalidOperationException($"Unexpected character '!' at line {startLine}, column {startColumn}.");
         }
 
         if (currentChar == '+')
@@ -307,8 +327,15 @@ public class Lexer
 
         if (currentChar == '<' || currentChar == '>')
         {
+            var startLine = _line;
+            var startColumn = _column;
             Advance();
-            return new Token(TokenType.Operator, currentChar.ToString(), _line, _column);
+            if (!IsEnd() && Peek() == '=')
+            {
+                Advance();
+                return new Token(TokenType.Operator, $"{currentChar}=", startLine, startColumn);
+            }
+            return new Token(TokenType.Operator, currentChar.ToString(), startLine, startColumn);
         }
 
         if (currentChar == ':' || currentChar == '?' || currentChar == ';')

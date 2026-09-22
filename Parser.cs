@@ -67,7 +67,27 @@ namespace ReMindParser
         private Expression ParsePostfixExpression()
         {
             Expression expression;
-            if (_tokens[_index].Type == TokenType.String)
+            if (_tokens[_index].Type == TokenType.LParen)
+            {
+                _index++;
+                expression = ParseExpression();
+                if (_index >= _tokens.Count || _tokens[_index].Type != TokenType.RParen)
+                {
+                    throw new InvalidOperationException("Expected ')' after grouped expression.");
+                }
+                _index++;
+            }
+            else if (_tokens[_index].Type == TokenType.Minus && _index + 1 < _tokens.Count && _tokens[_index + 1].Type == TokenType.Number)
+            {
+                _index++;
+                expression = new LiteralExpression { Value = -int.Parse(_tokens[_index++].Text) };
+            }
+            else if (_tokens[_index].Type == TokenType.Minus)
+            {
+                _index++;
+                expression = new UnaryExpression { Operator = "-", Operand = ParsePostfixExpression() };
+            }
+            else if (_tokens[_index].Type == TokenType.String)
             {
                 expression = new LiteralExpression { Value = _tokens[_index++].Text };
             }
@@ -148,6 +168,7 @@ namespace ReMindParser
             {
                 TokenType.Operator => 1,
                 TokenType.Plus or TokenType.Minus => 2,
+                TokenType.Asterisk or TokenType.Slash or TokenType.Percent => 3,
                 _ => 0
             };
             return precedence > 0;
@@ -164,6 +185,11 @@ namespace ReMindParser
             {
                 _index++;
                 var expr = ParseExpression();
+
+                if (TryConsumeReturnMarker(expr))
+                {
+                    return new ReturnStatement { Value = expr };
+                }
 
                 if (_index < _tokens.Count && _tokens[_index].Type == TokenType.Assign)
                 {
@@ -335,6 +361,30 @@ namespace ReMindParser
             return new LocalVariableDeclaration { Javadoc = documentation, Type = type, NameJa = nameJa, NameEn = ResolveTargetName(nameJa), Initializer = initializer };
         }
 
+        // 「値を　返す」構文を検出する。「を」が直前の識別子に結合している場合と、独立トークンの場合の両方に対応する。
+        private bool TryConsumeReturnMarker(Expression expr)
+        {
+            if (expr is IdentifierExpression identifierExpr &&
+                identifierExpr.NameJa.Length > 1 &&
+                identifierExpr.NameJa.EndsWith("を", StringComparison.Ordinal) &&
+                _index < _tokens.Count && _tokens[_index].Text == "返す")
+            {
+                var trimmed = identifierExpr.NameJa[..^1];
+                identifierExpr.NameJa = trimmed;
+                identifierExpr.NameEn = ResolveTargetName(trimmed);
+                _index++;
+                return true;
+            }
+
+            if (_index + 1 < _tokens.Count && _tokens[_index].Text == "を" && _tokens[_index + 1].Text == "返す")
+            {
+                _index += 2;
+                return true;
+            }
+
+            return false;
+        }
+
         private void ParseLoopBody(List<Statement> body)
         {
             JavadocComment? pendingDocumentation = null;
@@ -430,25 +480,114 @@ namespace ReMindParser
             return typeName;
         }
 
+        private static readonly Dictionary<string, string> AliasTargetNames = new(StringComparer.Ordinal)
+        {
+            ["コンソール"] = "Console",
+            ["一行表示する"] = "WriteLine",
+        };
+
+        private readonly Dictionary<string, string> _javadocTargetNames = new(StringComparer.Ordinal);
+
+        // ソース上のJavadoc（要約行・@param）から収集した対応表を優先し、無ければ日本語名をそのまま使う（暫定対応、正式仕様は仕様書.mdに追記予定）。
         private string ResolveTargetName(string name)
         {
-            return name switch
+            if (AliasTargetNames.TryGetValue(name, out var alias))
             {
-                "プログラム型" => "Program",
-                "メイン" => "Main",
-                "引数" => "args",
-                "引数2" => "args2",
-                "挨拶１" => "aisatsu1",
-                "コンソール" => "Console",
-                "一行表示する" => "WriteLine",
-                "コンソール表示する" => "ConsoleOut",
-                "バブルソートする" => "BubbleSort",
-                "配列" => "array",
-                "外側" => "outer",
-                "内側" => "inner",
-                "一時" => "temp",
-                _ => name
-            };
+                return alias;
+            }
+            return _javadocTargetNames.TryGetValue(name, out var resolved) ? resolved : name;
+        }
+
+        private void BuildJavadocTargetNameTable()
+        {
+            string? pendingSummary = null;
+            List<JavadocParam>? pendingParams = null;
+
+            for (var i = 0; i < _tokens.Count; i++)
+            {
+                var token = _tokens[i];
+
+                if (token.Type == TokenType.DocumentComment)
+                {
+                    var documentation = ParseDocumentation(token.Text);
+                    pendingSummary = documentation.Summary;
+                    pendingParams = documentation.Params;
+                    continue;
+                }
+
+                if (token.Type == TokenType.DeclarationStart)
+                {
+                    var declaredName = FindDeclarationName(i);
+                    if (declaredName != null && !string.IsNullOrEmpty(pendingSummary))
+                    {
+                        _javadocTargetNames[declaredName] = pendingSummary!;
+                    }
+                    if (pendingParams != null)
+                    {
+                        foreach (var parameter in pendingParams)
+                        {
+                            _javadocTargetNames[parameter.NameJa] = parameter.NameEn;
+                        }
+                    }
+                    pendingSummary = null;
+                    pendingParams = null;
+                    continue;
+                }
+
+                if (token.Type == TokenType.DeclarationBullet)
+                {
+                    var localName = FindLocalVariableName(i);
+                    if (localName != null && !string.IsNullOrEmpty(pendingSummary))
+                    {
+                        _javadocTargetNames[localName] = pendingSummary!;
+                    }
+                    pendingSummary = null;
+                    pendingParams = null;
+                }
+            }
+        }
+
+        private string? FindDeclarationName(int declarationStartIndex)
+        {
+            // ▽public クラス プログラム型 / ▽static void メイン(...)
+            var i = declarationStartIndex + 1;
+            string? lastIdentifier = null;
+            while (i < _tokens.Count &&
+                   _tokens[i].Type != TokenType.LParen &&
+                   _tokens[i].Type != TokenType.DeclarationEnd &&
+                   _tokens[i].Type != TokenType.DeclarationStart)
+            {
+                if (_tokens[i].Type == TokenType.Identifier)
+                {
+                    if (_tokens[i].Text == "クラス")
+                    {
+                        return i + 1 < _tokens.Count ? _tokens[i + 1].Text : null;
+                    }
+                    lastIdentifier = _tokens[i].Text;
+                }
+                i++;
+            }
+            return lastIdentifier;
+        }
+
+        private string? FindLocalVariableName(int bulletIndex)
+        {
+            // ・int[] 配列 = ... / ・int 探す値 = ...
+            var i = bulletIndex + 1;
+            if (i >= _tokens.Count || _tokens[i].Type != TokenType.Identifier)
+            {
+                return null;
+            }
+            i++;
+            if (i + 1 < _tokens.Count && _tokens[i].Type == TokenType.LBracket && _tokens[i + 1].Type == TokenType.RBracket)
+            {
+                i += 2;
+            }
+            if (i < _tokens.Count && _tokens[i].Type == TokenType.Symbol && _tokens[i].Text == "?")
+            {
+                i++;
+            }
+            return i < _tokens.Count && _tokens[i].Type == TokenType.Identifier ? _tokens[i].Text : null;
         }
 
         private Parameter ParseTokenParameter()
@@ -483,9 +622,13 @@ namespace ReMindParser
             };
             method.Modifiers.Add("static");
 
-            if (_index < _tokens.Count && _tokens[_index].Type != TokenType.RParen)
+            while (_index < _tokens.Count && _tokens[_index].Type != TokenType.RParen)
             {
                 method.Parameters.Add(ParseTokenParameter());
+                if (_index < _tokens.Count && _tokens[_index].Type == TokenType.Comma)
+                {
+                    _index++;
+                }
             }
 
             if (_index >= _tokens.Count || _tokens[_index].Type != TokenType.RParen)
@@ -494,14 +637,6 @@ namespace ReMindParser
             }
 
             _index++;
-            foreach (var parameter in method.Parameters)
-            {
-                var documentationParameter = documentation?.Params.FirstOrDefault(parameterInfo => parameterInfo.NameJa == parameter.NameJa);
-                if (documentationParameter != null)
-                {
-                    parameter.NameEn = documentationParameter.NameEn;
-                }
-            }
             while (_index < _tokens.Count && _tokens[_index].Type != TokenType.DeclarationEnd)
             {
                 var pendingDocumentation = TakeDocumentation();
@@ -648,6 +783,7 @@ namespace ReMindParser
         {
             if (_tokens.Exists(token => token.Type == TokenType.DeclarationStart))
             {
+                BuildJavadocTargetNameTable();
                 return ParseTokenCompilationUnit();
             }
 

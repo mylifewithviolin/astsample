@@ -1,0 +1,65 @@
+﻿using System;
+
+namespace BinarySearch
+{
+    /// <summary>プログラム型</summary>
+    public class Program
+    {
+        /// <summary>メイン</summary>
+        /// <param name="args">引数</param>
+        static void Main(string[] args)
+        {
+            /// <summary>配列</summary>
+            int[] array = new int[] { 15, 13, 9, 6, 4, 1 };
+            /// <summary>探す値</summary>
+            int target = 4;
+            /// <summary>該当インデックス</summary>
+            int index = BinarySearch(array, target);
+            if (index != -1)
+            {
+                ConsoleOut(index);
+            }
+            else
+            {
+                ConsoleOut("該当なし");
+            }
+        }
+        
+        /// <summary>二分探索する</summary>
+        /// <param name="array">配列</param>
+        /// <param name="target">探す値</param>
+        static int BinarySearch(int[] array, int target)
+        {
+            /// <summary>左端</summary>
+            int left = 0;
+            /// <summary>右端</summary>
+            int right = array.Length - 1;
+            while (left <= right)
+            {
+                /// <summary>中央</summary>
+                int mid = (left + right) / 2;
+                if (array[mid] == target)
+                {
+                    return mid;
+                }
+                if (array[mid] < target)
+                {
+                    left = mid + 1;
+                }
+                else
+                {
+                    right = mid - 1;
+                }
+            }
+            return -1;
+        }
+        
+        /// <summary>コンソール表示する</summary>
+        /// <param name="dispStr">引数2</param>
+        static void ConsoleOut(string dispStr)
+        {
+            Console.WriteLine(dispStr);
+        }
+        
+    }
+}

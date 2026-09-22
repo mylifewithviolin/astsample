@@ -92,6 +92,12 @@ namespace ReMindParser
                         if (forStatement.Iterator != null) ResolveExpressionNames(forStatement.Iterator, loopNames);
                         ResolveStatements(forStatement.Body, loopNames);
                         break;
+                    case ReturnStatement returnStatement:
+                        if (returnStatement.Value != null)
+                        {
+                            ResolveExpressionNames(returnStatement.Value, names);
+                        }
+                        break;
                 }
             }
         }

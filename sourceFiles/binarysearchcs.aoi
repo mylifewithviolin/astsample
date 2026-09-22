@@ -1,0 +1,66 @@
+▽名前空間 BinarySearch
+    /**
+    * Program
+    */
+    ▽public クラス プログラム型
+
+        /**
+        * Main
+        * @param 引数 args
+        */
+        ▽static void メイン(string[] 引数)
+            /** array */
+            ・int[] 配列 = 15,13,9,6,4,1
+            
+            /** target */
+            ・int 探す値 = 4
+            
+            /** index */
+            ・int 該当インデックス = 二分探索する(配列, 探す値)
+            ◇該当インデックス != -1 の場合
+            　 □コンソール表示する(該当インデックス)
+            ◇他に
+            　 □コンソール表示する("該当なし")
+            ◇ここまで
+        △
+            
+         /** BinarySearch
+         * @param 配列 array
+         * @param 探す値 target
+         */
+        ▽public int 二分探索する(int[] 配列, int 探す値)
+          /** left */
+          ・int 左端 = 0
+          /** right */
+          ・int 右端 = 配列.Length - 1
+          〇左端 <= 右端 の間は繰り返す
+            /** mid */
+            ・int 中央 = (左端 + 右端) / 2
+            ◇配列[中央] == 探す値 の場合
+              □中央を　返す
+            ◇ここまで
+            ◇配列[中央] < 探す値 の場合
+              □左端 = 中央 + 1
+            ◇他に
+              □右端 = 中央 - 1
+            ◇ここまで
+          〇ここまで
+          □-1を　返す
+        △
+
+        /**
+        * ConsoleOut
+        * @param 引数2 dispStr
+        */
+        ▽static void コンソール表示する(string 引数2)
+            □コンソール.一行表示する(引数2)
+        △
+    △
+△
+
+■インポートする System
+▼public static class コンソール Console
+    ▼public static 一行表示する(string? value)
+        ■WriteLine (string? value)
+    ▲
+▲

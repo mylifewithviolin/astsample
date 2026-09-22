@@ -155,7 +155,7 @@ namespace ReMindBackend
 
             if (stmt is CallIR call)
             {
-                _w.WriteLine($"{call.MethodName}({string.Join(", ", call.Arguments.Select(GenerateExpression))});");
+                _w.WriteLine($"{call.MethodName}({string.Join(", ", call.Arguments.Select(argument => GenerateExpression(argument)))});");
             }
 
             if (stmt is ExpressionStatementIR expressionStatement)
@@ -176,6 +176,21 @@ namespace ReMindBackend
 
                 _w.Unindent();
                 _w.WriteLine("}");
+
+                if (ifStatement.ElseBlock != null && ifStatement.ElseBlock.Statements.Count > 0)
+                {
+                    _w.WriteLine("else");
+                    _w.WriteLine("{");
+                    _w.Indent();
+
+                    foreach (var statement in ifStatement.ElseBlock.Statements)
+                    {
+                        GenerateStatement(statement);
+                    }
+
+                    _w.Unindent();
+                    _w.WriteLine("}");
+                }
             }
 
             if (stmt is WhileIR whileStatement)
@@ -192,9 +207,30 @@ namespace ReMindBackend
                 _w.Unindent();
                 _w.WriteLine("}");
             }
+
+            if (stmt is ReturnIR returnStatement)
+            {
+                _w.WriteLine(returnStatement.Value == null ? "return;" : $"return {GenerateExpression(returnStatement.Value)};");
+            }
         }
 
         private string GenerateExpression(ExpressionIR expr)
+        {
+            return GenerateExpression(expr, 0);
+        }
+
+        private static int GetOperatorPrecedence(string op)
+        {
+            return op switch
+            {
+                "==" or "!=" or "<" or ">" or "<=" or ">=" => 1,
+                "+" or "-" => 2,
+                "*" or "/" or "%" => 3,
+                _ => 0
+            };
+        }
+
+        private string GenerateExpression(ExpressionIR expr, int parentPrecedence)
         {
             _ = _mappingTable;
             ApplyFormattingInfo(expr.FormattingInfo);
@@ -203,16 +239,24 @@ namespace ReMindBackend
             {
                 IdentifierIR identifier => identifier.Name,
                 LiteralIR literal => literal.Value,
-                BinaryIR binary => $"{GenerateExpression(binary.Left)} {binary.Operator} {GenerateExpression(binary.Right)}",
+                BinaryIR binary => GenerateBinaryExpression(binary, parentPrecedence),
                 UnaryIR unary => $"{GenerateExpression(unary.Operand)}{unary.Operator}",
                 ArrayAccessIR arrayAccess => $"{GenerateExpression(arrayAccess.Array)}[{GenerateExpression(arrayAccess.Index)}]",
-                ArrayLiteralIR arrayLiteral => $"new {arrayLiteral.ElementType}[] {{ {string.Join(", ", arrayLiteral.Elements.Select(GenerateExpression))} }}",
+                ArrayLiteralIR arrayLiteral => $"new {arrayLiteral.ElementType}[] {{ {string.Join(", ", arrayLiteral.Elements.Select(element => GenerateExpression(element)))} }}",
                 NewExpressionIR arrayCreation => $"new {arrayCreation.TypeName}[{GenerateExpression(arrayCreation.Arguments[0])}]",
-                CallExpressionIR call when call.MethodName == "コンソール.一行表示する" => $"{_mappingTable.ConsoleWriteLine["コンソール.一行表示する"]}({string.Join(", ", call.Arguments.Select(GenerateExpression))});",
-                CallExpressionIR call => $"{call.MethodName}({string.Join(", ", call.Arguments.Select(GenerateExpression))})",
+                CallExpressionIR call when call.MethodName == "コンソール.一行表示する" => $"{_mappingTable.ConsoleWriteLine["コンソール.一行表示する"]}({string.Join(", ", call.Arguments.Select(argument => GenerateExpression(argument)))});",
+                CallExpressionIR call => $"{call.MethodName}({string.Join(", ", call.Arguments.Select(argument => GenerateExpression(argument)))})",
                 MemberAccessIR memberAccess => $"{GenerateExpression(memberAccess.Target)}.{memberAccess.MemberName}",
                 _ => string.Empty
             };
+        }
+
+        private string GenerateBinaryExpression(BinaryIR binary, int parentPrecedence)
+        {
+            var precedence = GetOperatorPrecedence(binary.Operator);
+            // 右辺は同順位でも括弧を残し、"-"/"/"のような非結合演算子の意味を保つ
+            var text = $"{GenerateExpression(binary.Left, precedence)} {binary.Operator} {GenerateExpression(binary.Right, precedence + 1)}";
+            return precedence < parentPrecedence ? $"({text})" : text;
         }
 
         private string GenerateInlineStatement(StatementIR statement)

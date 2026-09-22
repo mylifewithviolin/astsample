@@ -1,0 +1,54 @@
+﻿using System;
+
+namespace LinearSearch
+{
+    /// <summary>プログラム型</summary>
+    public class Program
+    {
+        /// <summary>メイン</summary>
+        /// <param name="args">引数</param>
+        static void Main(string[] args)
+        {
+            /// <summary>配列</summary>
+            int[] array = new int[] { 15, 13, 9, 6, 4, 1 };
+            /// <summary>探す値</summary>
+            int target = 4;
+            /// <summary>該当インデックス</summary>
+            int index = LinearSearch(array, target);
+            if (index != -1)
+            {
+                ConsoleOut(index);
+            }
+            else
+            {
+                ConsoleOut("該当なし");
+            }
+        }
+        
+        /// <summary>線形探索する</summary>
+        /// <param name="array">配列</param>
+        /// <param name="target">探す値</param>
+        static int LinearSearch(int[] array, int target)
+        {
+            /// <summary>インデックス</summary>
+            int i = 0;
+            while (i < array.Length)
+            {
+                if (array[i] == target)
+                {
+                    return i;
+                }
+                i++;
+            }
+            return -1;
+        }
+        
+        /// <summary>コンソール表示する</summary>
+        /// <param name="dispStr">引数2</param>
+        static void ConsoleOut(string dispStr)
+        {
+            Console.WriteLine(dispStr);
+        }
+        
+    }
+}

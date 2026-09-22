@@ -1,0 +1,58 @@
+▽名前空間 LinearSearch
+    /**
+    * Program
+    */
+    ▽public クラス プログラム型
+
+        /**
+        * Main
+        * @param 引数 args
+        */
+        ▽static void メイン(string[] 引数)
+            /** array */
+            ・int[] 配列 = 15,13,9,6,4,1
+            
+            /** target */
+            ・int 探す値 = 4
+            
+            /** index */
+            ・int 該当インデックス = 線形探索する(配列, 探す値)
+            ◇該当インデックス != -1 の場合
+            　 □コンソール表示する(該当インデックス)
+            ◇他に
+            　 □コンソール表示する("該当なし")
+            ◇ここまで
+        △
+        
+        /** LinearSearch
+         * @param 配列 array
+         * @param 探す値 target
+         */
+        ▽public int 線形探索する(int[] 配列, int 探す値)
+          /** i */
+          ・int インデックス = 0
+          〇インデックス < 配列.Length の間は繰り返す
+            ◇配列[インデックス] == 探す値 の場合
+              □インデックスを　返す
+            ◇ここまで
+            □インデックス++
+          〇ここまで
+          □-1を　返す
+        △
+
+        /**
+        * ConsoleOut
+        * @param 引数2 dispStr
+        */
+        ▽static void コンソール表示する(string 引数2)
+            □コンソール.一行表示する(引数2)
+        △
+    △
+△
+
+■インポートする System
+▼public static class コンソール Console
+    ▼public static 一行表示する(string? value)
+        ■WriteLine (string? value)
+    ▲
+▲
