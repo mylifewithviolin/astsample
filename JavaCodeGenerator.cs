@@ -504,6 +504,16 @@ namespace ReMindBackend
                 return "main";
             }
 
+            if (string.Equals(name, "ConsoleOut", StringComparison.OrdinalIgnoreCase))
+            {
+                return "consoleOut";
+            }
+
+            if (string.Equals(name, "BubbleSort", StringComparison.OrdinalIgnoreCase))
+            {
+                return "bubbleSort";
+            }
+
             return NormalizeJavaIdentifier(name, false, false);
         }
 
@@ -546,16 +556,31 @@ namespace ReMindBackend
 
             if (isPackageName)
             {
-                result = result.ToLowerInvariant();
+                return result.ToLowerInvariant();
             }
-            else if (isClassName)
+
+            if (isClassName)
             {
                 if (char.IsLower(result[0]))
                 {
                     result = char.ToUpperInvariant(result[0]) + result.Substring(1);
                 }
+                return result;
             }
-            else if (char.IsUpper(result[0]))
+
+            if (string.IsNullOrEmpty(result))
+            {
+                return "value";
+            }
+
+            if (result.Length > 1 && char.IsUpper(result[0]) && char.IsUpper(result[1]))
+            {
+                // acronym-like names (e.g. URL) stay mostly intact, but method names become lower camel.
+                result = char.ToLowerInvariant(result[0]) + result.Substring(1);
+                return result;
+            }
+
+            if (char.IsUpper(result[0]))
             {
                 result = char.ToLowerInvariant(result[0]) + result.Substring(1);
             }
