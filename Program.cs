@@ -6,6 +6,8 @@ using ReMindParser;
 
 class Program
 {
+  private static readonly Encoding Utf8NoBom = new UTF8Encoding(false);
+
   static void Main(string[] args)
   {
     if (args.Length != 2)
@@ -54,7 +56,7 @@ class Program
       case ".cs_":
         output = new CSharpCodeGenerator().Generate(programIR);
         break;
-      case ".java":
+      case ".java_":
         output = new JavaCodeGenerator().Generate(programIR);
         break;
       case ".vb":
@@ -73,7 +75,7 @@ class Program
         Directory.CreateDirectory(outputDirectory);
       }
 
-      File.WriteAllText(targetFilePath, output, Encoding.UTF8);
+      File.WriteAllText(targetFilePath, output, Utf8NoBom);
 
       CompareWithReferenceFile(targetFilePath);
     }

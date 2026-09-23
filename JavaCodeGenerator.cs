@@ -1,11 +1,22 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using ReMindAst;
 
 namespace ReMindBackend
 {
     public class JavaCodeGenerator
     {
+        private static readonly HashSet<string> JavaReservedWords = new(StringComparer.Ordinal)
+        {
+            "abstract","assert","boolean","break","byte","case","catch","char","class","const","continue",
+            "default","do","double","else","enum","extends","final","finally","float","for","goto","if",
+            "implements","import","instanceof","int","interface","long","native","new","package","private",
+            "protected","public","return","short","static","strictfp","super","switch","synchronized","this",
+            "throw","throws","transient","try","void","volatile","while","true","false","null"
+        };
+
         private readonly IndentWriter _w = new();
         private readonly MappingTable _mappingTable;
 
@@ -30,7 +41,7 @@ namespace ReMindBackend
             // namespace → package
             foreach (var ns in cu.Namespaces)
             {
-                _w.WriteLine($"package {ns.Name};");
+                _w.WriteLine($"package {NormalizeJavaPackageName(ns.Name)};");
                 _w.WriteLine();
 
                 foreach (var cls in ns.Classes)
@@ -47,7 +58,7 @@ namespace ReMindBackend
         {
             foreach (var namespaceName in program.Namespaces)
             {
-                _w.WriteLine($"package {namespaceName};");
+                _w.WriteLine($"package {NormalizeJavaPackageName(namespaceName)};");
                 _w.WriteLine();
             }
 
@@ -72,13 +83,15 @@ namespace ReMindBackend
         private void GenerateClass(ClassIR classIR)
         {
             GenerateDocumentation(classIR.Documentation);
-            _w.WriteLine($"public class {classIR.Name}");
+            var className = NormalizeJavaClassName(classIR.Name);
+            _w.WriteLine($"public class {className}");
             _w.WriteLine("{");
             _w.Indent();
 
             foreach (var field in classIR.Fields)
             {
-                _w.WriteLine($"{string.Join(" ", field.Modifiers)} {MapType(field.Type)} {field.Name};");
+                var fieldName = NormalizeJavaFieldName(field.Name);
+                _w.WriteLine($"{string.Join(" ", field.Modifiers)} {MapType(field.Type)} {fieldName};");
             }
 
             foreach (var method in classIR.Methods)
@@ -94,7 +107,8 @@ namespace ReMindBackend
         private void GenerateMethod(MethodIR methodIR)
         {
             GenerateDocumentation(methodIR.Documentation);
-            _w.WriteLine($"public static {MapType(methodIR.ReturnType)} {methodIR.Name}({string.Join(", ", methodIR.Parameters.Select(MapParameter))})");
+            var methodName = NormalizeJavaMethodName(methodIR.Name);
+            _w.WriteLine($"public static {MapType(methodIR.ReturnType)} {methodName}({string.Join(", ", methodIR.Parameters.Select(MapParameter))})");
             _w.WriteLine("{");
             _w.Indent();
 
@@ -113,11 +127,12 @@ namespace ReMindBackend
             {
                 case VariableDeclarationIR variable:
                     GenerateDocumentation(variable.Documentation);
-                    _w.WriteLine($"{MapType(variable.Type)} {variable.Name} = {GenerateExpression(variable.Initializer)};");
+                    var variableName = NormalizeJavaIdentifier(variable.Name);
+                    _w.WriteLine($"{MapType(variable.Type)} {variableName} = {GenerateExpression(variable.Initializer)};");
                     break;
                 case AssignmentIR assignment:
                     var target = assignment.TargetExpression == null
-                        ? assignment.Target
+                        ? NormalizeJavaIdentifier(assignment.Target)
                         : GenerateExpression(assignment.TargetExpression);
                     _w.WriteLine($"{target} = {GenerateExpression(assignment.Value)};");
                     break;
@@ -167,14 +182,14 @@ namespace ReMindBackend
         {
             return expr switch
             {
-                IdentifierIR identifier => identifier.Name,
+                IdentifierIR identifier => NormalizeJavaIdentifier(identifier.Name),
                 LiteralIR literal => literal.Value,
                 BinaryIR binary => $"{GenerateExpression(binary.Left)} {binary.Operator} {GenerateExpression(binary.Right)}",
                 UnaryIR unary => $"{GenerateExpression(unary.Operand)}{unary.Operator}",
                 CallExpressionIR call => $"{MapCall(call.MethodName)}({string.Join(", ", call.Arguments.Select(GenerateExpression))})",
                 MemberAccessIR member => member.MemberName == "Length"
                     ? $"{GenerateExpression(member.Target)}.length"
-                    : $"{GenerateExpression(member.Target)}.{member.MemberName}",
+                    : $"{GenerateExpression(member.Target)}.{NormalizeJavaIdentifier(member.MemberName)}",
                 ArrayAccessIR array => $"{GenerateExpression(array.Array)}[{GenerateExpression(array.Index)}]",
                 ArrayLiteralIR array => $"new {MapType(array.ElementType)}[] {{ {string.Join(", ", array.Elements.Select(GenerateExpression))} }}",
                 _ => string.Empty
@@ -184,19 +199,34 @@ namespace ReMindBackend
         private string GenerateInlineStatement(StatementIR statement)
         {
             return statement is VariableDeclarationIR variable
-                ? $"{MapType(variable.Type)} {variable.Name} = {GenerateExpression(variable.Initializer)}"
+                ? $"{MapType(variable.Type)} {NormalizeJavaIdentifier(variable.Name)} = {GenerateExpression(variable.Initializer)}"
                 : string.Empty;
         }
 
         private string MapParameter(string parameter)
         {
             var parts = parameter.Split(' ', 2);
-            return parts.Length == 2 ? $"{MapType(parts[0])} {parts[1]}" : parameter;
+            if (parts.Length == 2)
+            {
+                return $"{MapType(parts[0])} {NormalizeJavaIdentifier(parts[1])}";
+            }
+            return parameter;
         }
 
         private string MapCall(string methodName)
         {
-            return methodName == "コンソール.一行表示する" ? "System.out.println" : methodName;
+            if (string.IsNullOrWhiteSpace(methodName))
+            {
+                return methodName;
+            }
+
+            return methodName switch
+            {
+                "コンソール.一行表示する" => "System.out.println",
+                "Console.WriteLine" => "System.out.println",
+                "System.out.println" => "System.out.println",
+                _ => NormalizeJavaMethodName(methodName)
+            };
         }
 
         private string MapImport(string import)
@@ -232,7 +262,7 @@ namespace ReMindBackend
             if (!string.IsNullOrEmpty(mods))
                 mods += " ";
 
-            _w.WriteLine($"{mods}class {cls.NameEn} " + "{");
+            _w.WriteLine($"{mods}class {NormalizeJavaClassName(cls.NameEn)} " + "{");
             _w.Indent();
 
             foreach (var m in cls.Methods)
@@ -255,9 +285,9 @@ namespace ReMindBackend
                 mods += " ";
 
             var paramList = string.Join(", ",
-                m.Parameters.Select(p => $"{MapType(p.Type)} {p.NameEn}"));
+                m.Parameters.Select(p => $"{MapType(p.Type)} {NormalizeJavaIdentifier(p.NameEn)}"));
 
-            _w.WriteLine($"{mods}{MapType(m.ReturnType)} {m.NameEn}({paramList}) " + "{");
+            _w.WriteLine($"{mods}{MapType(m.ReturnType)} {NormalizeJavaMethodName(m.NameEn)}({paramList}) " + "{");
             _w.Indent();
 
             foreach (var stmt in m.Body)
@@ -434,6 +464,103 @@ namespace ReMindBackend
                 "void" => "void",
                 _ => t
             };
+        }
+
+        private static string NormalizeJavaPackageName(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                return "unnamed";
+            }
+
+            var trimmed = name.Trim();
+            var normalized = new StringBuilder(trimmed.Length);
+            foreach (var ch in trimmed)
+            {
+                if (char.IsLetterOrDigit(ch) || ch == '.')
+                {
+                    normalized.Append(ch);
+                }
+            }
+
+            var parts = normalized.ToString().Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            for (var i = 0; i < parts.Length; i++)
+            {
+                parts[i] = NormalizeJavaIdentifier(parts[i], true, false);
+            }
+
+            return string.Join(".", parts);
+        }
+
+        private static string NormalizeJavaClassName(string name)
+        {
+            return NormalizeJavaIdentifier(name, false, true);
+        }
+
+        private static string NormalizeJavaMethodName(string name)
+        {
+            if (string.Equals(name, "Main", StringComparison.Ordinal))
+            {
+                return "main";
+            }
+
+            return NormalizeJavaIdentifier(name, false, false);
+        }
+
+        private static string NormalizeJavaFieldName(string name)
+        {
+            return NormalizeJavaIdentifier(name, false, false);
+        }
+
+        private static string NormalizeJavaIdentifier(string name, bool isPackageName = false, bool isClassName = false)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                return isPackageName ? "unnamed" : "value";
+            }
+
+            var builder = new StringBuilder(name.Length);
+            foreach (var ch in name.Trim())
+            {
+                if (char.IsLetterOrDigit(ch) || ch == '_')
+                {
+                    builder.Append(ch);
+                }
+            }
+
+            var result = builder.ToString();
+            if (string.IsNullOrEmpty(result))
+            {
+                return isPackageName ? "unnamed" : "value";
+            }
+
+            if (char.IsDigit(result[0]))
+            {
+                result = "_" + result;
+            }
+
+            if (JavaReservedWords.Contains(result))
+            {
+                result = "_" + result;
+            }
+
+            if (isPackageName)
+            {
+                result = result.ToLowerInvariant();
+            }
+            else if (isClassName)
+            {
+                if (char.IsLower(result[0]))
+                {
+                    result = char.ToUpperInvariant(result[0]) + result.Substring(1);
+                }
+            }
+            else if (char.IsUpper(result[0]))
+            {
+                result = char.ToLowerInvariant(result[0]) + result.Substring(1);
+            }
+
+            return result;
         }
     }
 }

@@ -729,19 +729,23 @@ namespace ReMindParser
 
         private ImportDeclaration BuildSystemImport()
         {
+            var isJavaImport = _tokens.Any(token =>
+                token.Text == "java.lang.System" ||
+                token.Text == "PrintStream" ||
+                token.Text == "println");
             var import = new ImportDeclaration
             {
-                Name = "System"
+                Name = isJavaImport ? "java.lang.System" : "System"
             };
             var aliasClass = new AliasClass
             {
                 OriginalName = "コンソール",
-                TranspiledName = "Console"
+                TranspiledName = isJavaImport ? "System.out" : "Console"
             };
             aliasClass.Members.Add(new AliasMember
             {
                 OriginalName = "一行表示する",
-                TranspiledName = "WriteLine"
+                TranspiledName = isJavaImport ? "println" : "WriteLine"
             });
             import.AliasClasses.Add(aliasClass);
             return import;

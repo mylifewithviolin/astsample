@@ -1,4 +1,4 @@
-□パッケージ HelloWorld
+▽名前空間 HelloWorld
     /**
     * Program
     */
@@ -11,6 +11,7 @@
             □コンソール.一行表示する("Hello World!")
         △
     △
+△
 
 ■インポートする java.lang.System
 ▼public class コンソール PrintStream System.out
