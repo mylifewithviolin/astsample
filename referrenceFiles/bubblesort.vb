@@ -5,7 +5,7 @@ Namespace BubbleSort
     ''' <summary>
     ''' プログラム型
     ''' </summary>
-    Public Class ProgramType
+    Public Class Program
 
         ''' <summary>
         ''' メイン<

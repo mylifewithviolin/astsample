@@ -80,12 +80,15 @@ namespace ReMindBackend
         private void GenerateClass(ClassIR classIR)
         {
             GenerateDocumentation(classIR.Documentation);
-            _w.WriteLine($"Public Module {classIR.Name}");
+            _w.WriteLine($"Public Class {classIR.Name}");
             _w.Indent();
 
             foreach (var field in classIR.Fields)
             {
-                _w.WriteLine($"{string.Join(" ", field.Modifiers.Select(MapModifier))} {field.Name} As {MapType(field.Type)}");
+                GenerateDocumentation(field.Documentation);
+                var modifiers = string.Join(" ", field.Modifiers.Select(MapModifier));
+                var modifierPrefix = string.IsNullOrEmpty(modifiers) ? "" : $"{modifiers} ";
+                _w.WriteLine($"{modifierPrefix}{field.Name} As {MapType(field.Type)}");
             }
 
             foreach (var method in classIR.Methods)
@@ -95,20 +98,22 @@ namespace ReMindBackend
             }
 
             _w.Unindent();
-            _w.WriteLine("End Module");
+            _w.WriteLine("End Class");
         }
 
         private void GenerateMethod(MethodIR methodIR)
         {
             GenerateDocumentation(methodIR.Documentation);
             var parameters = string.Join(", ", methodIR.Parameters.Select(MapParameter));
+            var modifiers = string.Join(" ", methodIR.Modifiers.Select(MapMethodModifier));
+            var modifierPrefix = string.IsNullOrEmpty(modifiers) ? "" : $"{modifiers} ";
             if (methodIR.ReturnType == "void")
             {
-                _w.WriteLine($"Public Shared Sub {methodIR.Name}({parameters})");
+                _w.WriteLine($"{modifierPrefix}Sub {methodIR.Name}({parameters})");
             }
             else
             {
-                _w.WriteLine($"Public Shared Function {methodIR.Name}({parameters}) As {MapType(methodIR.ReturnType)}");
+                _w.WriteLine($"{modifierPrefix}Function {methodIR.Name}({parameters}) As {MapType(methodIR.ReturnType)}");
             }
 
             _w.Indent();
@@ -216,7 +221,7 @@ namespace ReMindBackend
         private string MapParameter(string parameter)
         {
             var parts = parameter.Split(' ', 2);
-            return parts.Length == 2 ? $"{parts[1]} As {MapType(parts[0])}" : parameter;
+            return parts.Length == 2 ? $"ByVal {parts[1]} As {MapType(parts[0])}" : parameter;
         }
 
         private string MapCall(string methodName)
@@ -237,7 +242,7 @@ namespace ReMindBackend
             }
             foreach (var parameter in documentation.Parameters)
             {
-                _w.WriteLine($"''' <param name=\"{parameter.Name}\">{parameter.Description}</param>");
+                _w.WriteLine($"''' <param name={parameter.Name}>{parameter.Description}</param>");
             }
         }
 
@@ -456,14 +461,15 @@ namespace ReMindBackend
 
         private string MapType(string t)
         {
-            return t switch
+            var core = t.EndsWith("?", StringComparison.Ordinal) ? t[..^1] : t;
+            return core switch
             {
                 "string" => "String",
                 "string[]" => "String()",
                 "int" => "Integer",
                 "int[]" => "Integer()",
                 "void" => "Void", // Function の場合は使わない想定
-                _ => t
+                _ => core
             };
         }
 
@@ -474,6 +480,7 @@ namespace ReMindBackend
                 "public" => "Public",
                 "private" => "Private",
                 "internal" => "Friend",
+                "static" => "Shared",
                 _ => m
             };
         }

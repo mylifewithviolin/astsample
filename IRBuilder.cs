@@ -66,6 +66,7 @@ namespace ReMindAst
                             ReturnType = method.ReturnType,
                             Documentation = BuildDocumentation(method.Javadoc, method.NameJa)
                         };
+                        methodIR.Modifiers.AddRange(method.Modifiers);
 
                         foreach (var parameter in method.Parameters)
                         {

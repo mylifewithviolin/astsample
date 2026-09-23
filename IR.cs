@@ -41,6 +41,7 @@ namespace ReMindAst
         public DocumentationIR? Documentation { get; set; }
         public string Name { get; set; } = "";
         public string ReturnType { get; set; } = "void";
+        public List<string> Modifiers { get; } = new();
         public List<string> Parameters { get; } = new();
         public List<string> LocalVariables { get; } = new();
         public BlockIR Body { get; } = new();

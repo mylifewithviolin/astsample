@@ -570,10 +570,19 @@ namespace ReMindParser
             return lastIdentifier;
         }
 
+        private static readonly HashSet<string> FieldModifierKeywords = new(StringComparer.Ordinal)
+        {
+            "public", "private", "protected", "internal", "static"
+        };
+
         private string? FindLocalVariableName(int bulletIndex)
         {
-            // ・int[] 配列 = ... / ・int 探す値 = ...
+            // ・int[] 配列 = ... / ・int 探す値 = ... / ・private static string? 挨拶１
             var i = bulletIndex + 1;
+            while (i < _tokens.Count && _tokens[i].Type == TokenType.Identifier && FieldModifierKeywords.Contains(_tokens[i].Text))
+            {
+                i++;
+            }
             if (i >= _tokens.Count || _tokens[i].Type != TokenType.Identifier)
             {
                 return null;
@@ -604,7 +613,7 @@ namespace ReMindParser
 
         private MethodDeclaration ParseTokenMethod(JavadocComment? documentation = null)
         {
-            TakeText("method modifier");
+            var methodModifier = TakeText("method modifier");
             var returnType = ParseTypeName();
             var nameJa = TakeText("method name");
             if (_index >= _tokens.Count || _tokens[_index].Type != TokenType.LParen)
@@ -620,7 +629,7 @@ namespace ReMindParser
                 ReturnType = returnType,
                 Javadoc = documentation
             };
-            method.Modifiers.Add("static");
+            method.Modifiers.Add(methodModifier);
 
             while (_index < _tokens.Count && _tokens[_index].Type != TokenType.RParen)
             {
