@@ -58,9 +58,9 @@
     △
 △
 
-■インポートする System
-▼public static class コンソール Console
-    ▼public static 一行表示する(string? value)
-        ■WriteLine (string? value)
+■インポートする java.lang.System
+▼public class コンソール PrintStream System.out
+    ▼public static 一行表示する(string value)
+        ■println (String value)
     ▲
 ▲

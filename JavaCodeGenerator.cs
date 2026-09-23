@@ -142,6 +142,17 @@ namespace ReMindBackend
                 case ExpressionStatementIR expression:
                     _w.WriteLine($"{GenerateExpression(expression.Expression)};");
                     break;
+                case ReturnIR returnStatement:
+                    _w.WriteLine(returnStatement.Value == null
+                        ? "return;"
+                        : $"return {GenerateExpression(returnStatement.Value)};");
+                    break;
+                case BreakIR:
+                    _w.WriteLine("break;");
+                    break;
+                case ContinueIR:
+                    _w.WriteLine("continue;");
+                    break;
                 case IfIR conditional:
                     _w.WriteLine($"if ({GenerateExpression(conditional.Condition)})");
                     _w.WriteLine("{");
@@ -152,6 +163,18 @@ namespace ReMindBackend
                     }
                     _w.Unindent();
                     _w.WriteLine("}");
+                    if (conditional.ElseBlock != null && conditional.ElseBlock.Statements.Count > 0)
+                    {
+                        _w.WriteLine("else");
+                        _w.WriteLine("{");
+                        _w.Indent();
+                        foreach (var nested in conditional.ElseBlock.Statements)
+                        {
+                            GenerateStatement(nested);
+                        }
+                        _w.Unindent();
+                        _w.WriteLine("}");
+                    }
                     break;
                 case WhileIR loop:
                     _w.WriteLine($"while ({GenerateExpression(loop.Condition)})");

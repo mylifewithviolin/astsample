@@ -1,0 +1,85 @@
+package binarysearch;
+
+import java.lang.System;
+
+/**
+ * プログラム型
+ */
+public class Program
+{
+    /**
+     * メイン
+     * @param args 引数
+     */
+    public static void main(String[] args)
+    {
+        /**
+         * 配列
+         */
+        int[] array = new int[] { 1, 4, 6, 9, 13, 15 };
+        /**
+         * 探す値
+         */
+        int target = 4;
+        /**
+         * 該当インデックス
+         */
+        int index = binarySearch(array, target);
+        if (index != -1)
+        {
+            System.out.println(index);
+        }
+        else
+        {
+            System.out.println("該当なし");
+        }
+    }
+    
+    /**
+     * 二分探索する
+     * @param array 配列
+     * @param target 探す値
+     */
+    public static int binarySearch(int[] array, int target)
+    {
+        /**
+         * 左端
+         */
+        int left = 0;
+        /**
+         * 右端
+         */
+        int right = array.length - 1;
+        while (left <= right)
+        {
+            /**
+             * 中央
+             */
+            int mid = left + right / 2;
+            if (array[mid] == target)
+            {
+                return mid;
+            }
+            if (array[mid] < target)
+            {
+                left = mid + 1;
+            }
+            else
+            {
+                right = mid - 1;
+            }
+        }
+        return -1;
+    }
+    
+    /**
+     * コンソール表示する
+     * @param dispStr 引数2
+     */
+    public static void consoleOut(String dispStr)
+    {
+        System.out.println(dispStr);
+    }
+    
+}
+
