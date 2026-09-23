@@ -15,7 +15,7 @@ public class Program
     public static void main(String[] args)
     {
         aisatsu1 = "Hello World one!";
-        consoleOut(aisatsu1);
+        System.out.println(aisatsu1);
     }
     
     /**

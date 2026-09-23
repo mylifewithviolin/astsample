@@ -220,6 +220,11 @@ namespace ReMindBackend
                 return methodName;
             }
 
+            if (string.Equals(methodName, "ConsoleOut", StringComparison.OrdinalIgnoreCase))
+            {
+                return "System.out.println";
+            }
+
             return methodName switch
             {
                 "コンソール.一行表示する" => "System.out.println",

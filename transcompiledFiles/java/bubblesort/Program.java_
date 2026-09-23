@@ -20,7 +20,7 @@ public class Program
         bubbleSort(array);
         for (int i = 0; i < array.length; i++)
         {
-            consoleOut(array[i]);
+            System.out.println(array[i]);
         }
     }
     
