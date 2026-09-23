@@ -288,6 +288,11 @@ namespace ReMindBackend
                 case ForIR loop:
                     GenerateFor(loop);
                     break;
+                case ReturnIR returnStatement:
+                    _w.WriteLine(returnStatement.Value == null
+                        ? "Return"
+                        : $"Return {GenerateExpression(returnStatement.Value)}");
+                    break;
             }
         }
 
@@ -318,7 +323,7 @@ namespace ReMindBackend
             {
                 IdentifierIR identifier => identifier.Name,
                 LiteralIR literal => literal.Value,
-                BinaryIR binary => $"{GenerateExpression(binary.Left)} {binary.Operator} {GenerateExpression(binary.Right)}",
+                BinaryIR binary => GenerateBinaryExpression(binary),
                 UnaryIR unary => $"{GenerateExpression(unary.Operand)} {MapUnaryOperator(unary.Operator)}",
                 CallExpressionIR call => $"{MapCall(call.MethodName)}({string.Join(", ", call.Arguments.Select(GenerateExpression))})",
                 MemberAccessIR member => $"{GenerateExpression(member.Target)}.{member.MemberName}",
@@ -326,6 +331,22 @@ namespace ReMindBackend
                 ArrayLiteralIR array => $"{{ {string.Join(", ", array.Elements.Select(GenerateExpression))} }}",
                 _ => ""
             };
+        }
+
+        private string GenerateBinaryExpression(BinaryIR binary)
+        {
+            var left = GenerateExpression(binary.Left);
+            var right = GenerateExpression(binary.Right);
+            var leftText = binary.Left is BinaryIR ? $"({left})" : left;
+            var rightText = binary.Right is BinaryIR ? $"({right})" : right;
+            var op = binary.Operator switch
+            {
+                "==" => "=",
+                "!=" => "<>",
+                "/" => "\\",
+                _ => binary.Operator
+            };
+            return $"{leftText} {op} {rightText}";
         }
 
         private string MapParameter(string parameter)
