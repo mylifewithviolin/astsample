@@ -87,6 +87,11 @@ namespace ReMindParser
                 _index++;
                 expression = new UnaryExpression { Operator = "-", Operand = ParsePostfixExpression() };
             }
+                else if (_tokens[_index].Type == TokenType.Operator && _tokens[_index].Text == "!")
+                {
+                    _index++;
+                    expression = new UnaryExpression { Operator = "!", Operand = ParsePostfixExpression() };
+                }
             else if (_tokens[_index].Type == TokenType.String)
             {
                 expression = new LiteralExpression { Value = _tokens[_index++].Text };
@@ -98,7 +103,12 @@ namespace ReMindParser
             else
             {
                 var nameJa = ParsePrimary();
-                expression = new IdentifierExpression { NameJa = nameJa, NameEn = ResolveTargetName(nameJa) };
+                    expression = nameJa switch
+                    {
+                        "true" => new LiteralExpression { Value = true },
+                        "false" => new LiteralExpression { Value = false },
+                        _ => new IdentifierExpression { NameJa = nameJa, NameEn = ResolveTargetName(nameJa) }
+                    };
             }
 
             while (_index < _tokens.Count)
@@ -166,9 +176,11 @@ namespace ReMindParser
         {
             precedence = token.Type switch
             {
-                TokenType.Operator => 1,
-                TokenType.Plus or TokenType.Minus => 2,
-                TokenType.Asterisk or TokenType.Slash or TokenType.Percent => 3,
+                    TokenType.Operator when token.Text == "||" => 1,
+                    TokenType.Operator when token.Text == "&&" => 2,
+                    TokenType.Operator => 3,
+                    TokenType.Plus or TokenType.Minus => 4,
+                    TokenType.Asterisk or TokenType.Slash or TokenType.Percent => 5,
                 _ => 0
             };
             return precedence > 0;
@@ -699,7 +711,23 @@ namespace ReMindParser
                         fieldTokens.Add(_tokens[_index++].Text);
                     }
 
-                    if (fieldTokens.Count >= 4)
+                    if ((fieldTokens.Count >= 4 && fieldTokens[0].StartsWith("定数", StringComparison.Ordinal)) ||
+                        (fieldTokens.Count >= 5 && fieldTokens[0] == "定数"))
+                    {
+                        var constantType = fieldTokens[0] == "定数" ? fieldTokens[1] : fieldTokens[0][2..];
+                        var constantNameIndex = fieldTokens[0] == "定数" ? 2 : 1;
+                        var constantValueIndex = constantNameIndex + 2;
+                        cls.Fields.Add(new FieldDeclaration
+                        {
+                            Type = constantType,
+                            NameJa = fieldTokens[constantNameIndex],
+                            NameEn = ResolveTargetName(fieldTokens[constantNameIndex]),
+                            Initializer = ParseSimpleLiteral(fieldTokens[constantValueIndex]),
+                            Javadoc = pendingDocumentation,
+                            Modifiers = { "const" }
+                        });
+                    }
+                    else if (fieldTokens.Count >= 4)
                     {
                         var fieldName = fieldTokens[^1];
                         var fieldType = string.Concat(fieldTokens.GetRange(2, fieldTokens.Count - 3));
@@ -725,6 +753,26 @@ namespace ReMindParser
             }
 
             return cls;
+        }
+
+        private static Expression ParseSimpleLiteral(string value)
+        {
+            if (value == "true" || value == "false")
+            {
+                return new LiteralExpression { Value = value == "true" };
+            }
+
+            if (int.TryParse(value, out var integerValue))
+            {
+                return new LiteralExpression { Value = integerValue };
+            }
+
+            if (value.Length >= 2 && value[0] == '"' && value[^1] == '"')
+            {
+                return new LiteralExpression { Value = value[1..^1] };
+            }
+
+            return new IdentifierExpression { NameJa = value, NameEn = value };
         }
 
         private ImportDeclaration BuildSystemImport()

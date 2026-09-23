@@ -1,0 +1,60 @@
+using System;
+
+namespace MvpValidation
+{
+    /// <summary>プログラム型</summary>
+    public class Program
+    {
+        /// <summary>制限値</summary>
+        private const int Limit = 3;
+        
+        /// <summary>メイン</summary>
+        /// <param name="args">引数</param>
+        static void Main(string[] args)
+        {
+            /// <summary>有効</summary>
+            bool enabled = true;
+            /// <summary>無効</summary>
+            bool disabled = false;
+            /// <summary>カウント</summary>
+            int count = 0;
+            /// <summary>結果</summary>
+            int result = Evaluate(enabled, disabled);
+            if (result > 0)
+            {
+                while (count < result)
+                {
+                    Console.WriteLine(count);
+                    count++;
+                }
+            }
+            else
+            {
+                Console.WriteLine("disabled");
+            }
+        }
+        
+        /// <summary>判定する</summary>
+        /// <param name="enabled">有効</param>
+        /// <param name="disabled">無効</param>
+        static int Evaluate(bool enabled, bool disabled)
+        {
+            if (enabled && !disabled || disabled)
+            {
+                return Limit;
+            }
+            else
+            {
+                return -1;
+            }
+        }
+        
+        /// <summary>コンソール表示する</summary>
+        /// <param name="dispStr">引数2</param>
+        static void ConsoleOut(string dispStr)
+        {
+            Console.WriteLine(dispStr);
+        }
+        
+    }
+}

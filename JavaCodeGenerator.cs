@@ -91,7 +91,10 @@ namespace ReMindBackend
             foreach (var field in classIR.Fields)
             {
                 var fieldName = NormalizeJavaFieldName(field.Name);
-                _w.WriteLine($"{string.Join(" ", field.Modifiers)} {MapType(field.Type)} {fieldName};");
+                var declaration = field.Modifiers.Contains("const", StringComparer.Ordinal)
+                    ? $"private static final {MapType(field.Type)} {fieldName} = {GenerateExpression(field.Initializer!)};"
+                    : $"{string.Join(" ", field.Modifiers)} {MapType(field.Type)} {fieldName};";
+                _w.WriteLine(declaration);
             }
 
             foreach (var method in classIR.Methods)
@@ -208,7 +211,7 @@ namespace ReMindBackend
                 IdentifierIR identifier => NormalizeJavaIdentifier(identifier.Name),
                 LiteralIR literal => literal.Value,
                 BinaryIR binary => $"{GenerateExpression(binary.Left)} {binary.Operator} {GenerateExpression(binary.Right)}",
-                UnaryIR unary => $"{GenerateExpression(unary.Operand)}{unary.Operator}",
+                UnaryIR unary => GenerateUnaryExpression(unary),
                 CallExpressionIR call => $"{MapCall(call.MethodName)}({string.Join(", ", call.Arguments.Select(GenerateExpression))})",
                 MemberAccessIR member => member.MemberName == "Length"
                     ? $"{GenerateExpression(member.Target)}.length"
@@ -217,6 +220,13 @@ namespace ReMindBackend
                 ArrayLiteralIR array => $"new {MapType(array.ElementType)}[] {{ {string.Join(", ", array.Elements.Select(GenerateExpression))} }}",
                 _ => string.Empty
             };
+        }
+
+        private string GenerateUnaryExpression(UnaryIR unary)
+        {
+            return unary.Operator == "++"
+                ? $"{GenerateExpression(unary.Operand)}++"
+                : $"{unary.Operator}{GenerateExpression(unary.Operand)}";
         }
 
         private string GenerateInlineStatement(StatementIR statement)
@@ -489,6 +499,7 @@ namespace ReMindBackend
                 "string?[]" => "String[]",
                 "int" => "int",
                 "int[]" => "int[]",
+                "bool" => "boolean",
                 "void" => "void",
                 _ => t
             };

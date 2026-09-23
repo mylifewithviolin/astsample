@@ -86,7 +86,10 @@ namespace ReMindBackend
             foreach (var field in classIR.Fields)
             {
                 GenerateDocumentation(field.Documentation);
-                _w.WriteLine($"{string.Join(" ", field.Modifiers)} {field.Type} {field.Name};");
+                var declaration = field.Modifiers.Contains("const", StringComparer.Ordinal)
+                    ? $"private const {field.Type} {field.Name} = {GenerateExpression(field.Initializer!)};"
+                    : $"{string.Join(" ", field.Modifiers)} {field.Type} {field.Name};";
+                _w.WriteLine(declaration);
             }
 
             if (classIR.Fields.Count > 0 && classIR.Methods.Count > 0)
@@ -155,7 +158,10 @@ namespace ReMindBackend
 
             if (stmt is CallIR call)
             {
-                _w.WriteLine($"{call.MethodName}({string.Join(", ", call.Arguments.Select(argument => GenerateExpression(argument)))});");
+                var callName = call.MethodName.Equals("ConsoleOut", StringComparison.OrdinalIgnoreCase)
+                    ? "Console.WriteLine"
+                    : call.MethodName;
+                _w.WriteLine($"{callName}({string.Join(", ", call.Arguments.Select(argument => GenerateExpression(argument)))});");
             }
 
             if (stmt is ExpressionStatementIR expressionStatement)
@@ -240,7 +246,9 @@ namespace ReMindBackend
                 IdentifierIR identifier => identifier.Name,
                 LiteralIR literal => literal.Value,
                 BinaryIR binary => GenerateBinaryExpression(binary, parentPrecedence),
-                UnaryIR unary => $"{GenerateExpression(unary.Operand)}{unary.Operator}",
+                UnaryIR unary => unary.Operator == "++"
+                    ? $"{GenerateExpression(unary.Operand)}++"
+                    : $"{unary.Operator}{GenerateExpression(unary.Operand)}",
                 ArrayAccessIR arrayAccess => $"{GenerateExpression(arrayAccess.Array)}[{GenerateExpression(arrayAccess.Index)}]",
                 ArrayLiteralIR arrayLiteral => $"new {arrayLiteral.ElementType}[] {{ {string.Join(", ", arrayLiteral.Elements.Select(element => GenerateExpression(element)))} }}",
                 NewExpressionIR arrayCreation => $"new {arrayCreation.TypeName}[{GenerateExpression(arrayCreation.Arguments[0])}]",

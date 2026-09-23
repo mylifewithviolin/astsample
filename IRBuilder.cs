@@ -52,7 +52,8 @@ namespace ReMindAst
                         {
                             Documentation = BuildDocumentation(field.Javadoc, field.NameJa),
                             Type = field.Type,
-                            Name = field.NameEn
+                            Name = field.NameEn,
+                            Initializer = field.Initializer != null ? BuildExpression(field.Initializer) : null
                         };
                         fieldIR.Modifiers.AddRange(field.Modifiers);
                         classIR.Fields.Add(fieldIR);
@@ -219,7 +220,9 @@ namespace ReMindAst
                 {
                     Value = literal.Value is string stringValue
                         ? $"\"{stringValue}\""
-                        : literal.Value?.ToString() ?? ""
+                        : literal.Value is bool boolValue
+                            ? boolValue.ToString().ToLowerInvariant()
+                            : literal.Value?.ToString() ?? ""
                 },
                 MemberAccessExpression memberAccess => new MemberAccessIR
                 {

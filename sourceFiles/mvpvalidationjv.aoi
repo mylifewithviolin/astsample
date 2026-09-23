@@ -1,0 +1,63 @@
+▽名前空間 MvpValidation
+    /**
+    * Program
+    */
+    ▽public クラス プログラム型
+
+        /**
+        * Limit
+        */
+        ・定数int 制限値 = 3
+
+        /**
+        * Main
+        * @param 引数 args
+        */
+        ▽static void メイン(string[] 引数)
+            /** enabled */
+            ・bool 有効 = true
+            /** disabled */
+            ・bool 無効 = false
+            /** count */
+            ・int カウント = 0
+            /** result */
+            ・int 結果 = 判定する(有効, 無効)
+            ◇結果 > 0 の場合
+                〇カウント < 結果 の間は繰り返す
+                    □コンソール表示する(カウント)
+                    □カウント++
+                〇ここまで
+            ◇他に
+                □コンソール表示する("disabled")
+            ◇ここまで
+        △
+
+        /**
+        * Evaluate
+        * @param 有効 enabled
+        * @param 無効 disabled
+        */
+        ▽static int 判定する(bool 有効, bool 無効)
+            ◇有効 && !無効 || 無効 の場合
+                □制限値を 返す
+            ◇他に
+                □-1を 返す
+            ◇ここまで
+        △
+
+        /**
+        * ConsoleOut
+        * @param 引数2 dispStr
+        */
+        ▽static void コンソール表示する(string 引数2)
+            □コンソール.一行表示する(引数2)
+        △
+    △
+△
+
+■インポートする java.lang.System
+▼public class コンソール PrintStream System.out
+    ▼public static 一行表示する(string value)
+        ■println (String value)
+    ▲
+▲

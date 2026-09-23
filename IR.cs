@@ -58,6 +58,7 @@ namespace ReMindAst
         public List<string> Modifiers { get; } = new();
         public string Type { get; set; } = "";
         public string Name { get; set; } = "";
+        public ExpressionIR? Initializer { get; set; }
     }
 
     public abstract class StatementIR

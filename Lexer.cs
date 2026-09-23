@@ -292,7 +292,22 @@ public class Lexer
                 Advance();
                 return new Token(TokenType.Operator, "!=", startLine, startColumn);
             }
-            throw new InvalidOperationException($"Unexpected character '!' at line {startLine}, column {startColumn}.");
+            return new Token(TokenType.Operator, "!", startLine, startColumn);
+        }
+
+        if (currentChar == '&' || currentChar == '|')
+        {
+            var startLine = _line;
+            var startColumn = _column;
+            var expected = currentChar;
+            Advance();
+            if (!IsEnd() && Peek() == expected)
+            {
+                Advance();
+                return new Token(TokenType.Operator, expected == '&' ? "&&" : "||", startLine, startColumn);
+            }
+
+            throw new InvalidOperationException($"Expected '{expected}{expected}' at line {startLine}, column {startColumn}.");
         }
 
         if (currentChar == '+')

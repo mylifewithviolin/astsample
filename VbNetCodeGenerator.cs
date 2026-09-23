@@ -87,9 +87,16 @@ namespace ReMindBackend
             foreach (var field in classIR.Fields)
             {
                 GenerateDocumentation(field.Documentation);
-                var modifiers = string.Join(" ", field.Modifiers.Select(MapModifier));
-                var modifierPrefix = string.IsNullOrEmpty(modifiers) ? "" : $"{modifiers} ";
-                _w.WriteLine($"{modifierPrefix}{field.Name} As {MapType(field.Type)}");
+                if (field.Modifiers.Contains("const", StringComparer.Ordinal))
+                {
+                    _w.WriteLine($"Private Const {field.Name} As {MapType(field.Type)} = {GenerateExpression(field.Initializer!)}");
+                }
+                else
+                {
+                    var modifiers = string.Join(" ", field.Modifiers.Select(MapModifier));
+                    var modifierPrefix = string.IsNullOrEmpty(modifiers) ? "" : $"{modifiers} ";
+                    _w.WriteLine($"{modifierPrefix}{field.Name} As {MapType(field.Type)}");
+                }
             }
 
             foreach (var method in classIR.Methods)
@@ -107,6 +114,11 @@ namespace ReMindBackend
             GenerateDocumentation(methodIR.Documentation);
             var parameters = string.Join(", ", methodIR.Parameters.Select(MapParameter));
             var methodModifiers = methodIR.Modifiers.ToList();
+            if (string.Equals(methodIR.Name, "Main", StringComparison.Ordinal) &&
+                !methodModifiers.Contains("public", StringComparer.Ordinal))
+            {
+                methodModifiers.Insert(0, "public");
+            }
             if (!methodModifiers.Contains("static", StringComparer.Ordinal) &&
                 ShouldPromoteToShared(classIR, methodIR))
             {
@@ -324,7 +336,9 @@ namespace ReMindBackend
                 IdentifierIR identifier => identifier.Name,
                 LiteralIR literal => literal.Value,
                 BinaryIR binary => GenerateBinaryExpression(binary),
-                UnaryIR unary => $"{GenerateExpression(unary.Operand)} {MapUnaryOperator(unary.Operator)}",
+                UnaryIR unary => unary.Operator == "++"
+                    ? $"{GenerateExpression(unary.Operand)} += 1"
+                    : $"{MapUnaryOperator(unary.Operator)} {GenerateExpression(unary.Operand)}",
                 CallExpressionIR call => $"{MapCall(call.MethodName)}({string.Join(", ", call.Arguments.Select(GenerateExpression))})",
                 MemberAccessIR member => $"{GenerateExpression(member.Target)}.{member.MemberName}",
                 ArrayAccessIR array => $"{GenerateExpression(array.Array)}({GenerateExpression(array.Index)})",
@@ -343,6 +357,8 @@ namespace ReMindBackend
             {
                 "==" => "=",
                 "!=" => "<>",
+                "&&" => "AndAlso",
+                "||" => "OrElse",
                 "/" => "\\",
                 _ => binary.Operator
             };
@@ -357,7 +373,10 @@ namespace ReMindBackend
 
         private string MapCall(string methodName)
         {
-            return methodName == "コンソール.一行表示する" ? "Console.WriteLine" : methodName;
+            return methodName == "コンソール.一行表示する" ||
+                   methodName.Equals("ConsoleOut", StringComparison.OrdinalIgnoreCase)
+                ? "Console.WriteLine"
+                : methodName;
         }
 
         private void GenerateDocumentation(DocumentationIR? documentation)
@@ -599,6 +618,7 @@ namespace ReMindBackend
                 "string[]" => "String()",
                 "int" => "Integer",
                 "int[]" => "Integer()",
+                "bool" => "Boolean",
                 "void" => "Void", // Function の場合は使わない想定
                 _ => core
             };
@@ -634,6 +654,7 @@ namespace ReMindBackend
             {
                 "++" => "+= 1",
                 "--" => "-= 1",
+                "!" => "Not",
                 _ => op
             };
         }
