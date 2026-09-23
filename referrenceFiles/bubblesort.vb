@@ -11,7 +11,7 @@ Namespace BubbleSort
         ''' メイン<
         ''' </summary>
         ''' <param name="args">引数</param>
-        Public Shared Sub Main(args As String())
+        Shared Sub Main(args As String())
 
             ''' <summary>array （配列）</summary>
             Dim array As Integer() = {15, 13, 9, 6, 4, 1}

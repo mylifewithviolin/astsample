@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using ReMindAst;
 
@@ -93,7 +94,7 @@ namespace ReMindBackend
 
             foreach (var method in classIR.Methods)
             {
-                GenerateMethod(method);
+                GenerateMethod(classIR, method);
                 _w.WriteLine();
             }
 
@@ -101,11 +102,18 @@ namespace ReMindBackend
             _w.WriteLine("End Class");
         }
 
-        private void GenerateMethod(MethodIR methodIR)
+        private void GenerateMethod(ClassIR classIR, MethodIR methodIR)
         {
             GenerateDocumentation(methodIR.Documentation);
             var parameters = string.Join(", ", methodIR.Parameters.Select(MapParameter));
-            var modifiers = string.Join(" ", methodIR.Modifiers.Select(MapMethodModifier));
+            var methodModifiers = methodIR.Modifiers.ToList();
+            if (!methodModifiers.Contains("static", StringComparer.Ordinal) &&
+                ShouldPromoteToShared(classIR, methodIR))
+            {
+                methodModifiers.Add("static");
+            }
+
+            var modifiers = string.Join(" ", methodModifiers.Select(MapMethodModifier));
             var modifierPrefix = string.IsNullOrEmpty(modifiers) ? "" : $"{modifiers} ";
             if (methodIR.ReturnType == "void")
             {
@@ -123,6 +131,108 @@ namespace ReMindBackend
             }
             _w.Unindent();
             _w.WriteLine(methodIR.ReturnType == "void" ? "End Sub" : "End Function");
+        }
+
+        private static bool ShouldPromoteToShared(ClassIR classIR, MethodIR method)
+        {
+            var fieldNames = classIR.Fields.Select(field => field.Name).ToHashSet(StringComparer.Ordinal);
+            if (ReferencesAnyField(method.Body.Statements, fieldNames))
+            {
+                return false;
+            }
+
+            var calledByStaticMethod = classIR.Methods
+                .Where(candidate => candidate.Modifiers.Contains("static", StringComparer.Ordinal))
+                .Any(candidate => CallsMethod(candidate.Body.Statements, method.Name));
+
+            return calledByStaticMethod || classIR.Fields.Count == 0;
+        }
+
+        private static bool CallsMethod(IEnumerable<StatementIR> statements, string methodName)
+        {
+            foreach (var statement in statements)
+            {
+                if (statement is CallIR call && call.MethodName == methodName)
+                {
+                    return true;
+                }
+
+                if (statement is ExpressionStatementIR expression &&
+                    expression.Expression is CallExpressionIR callExpression &&
+                    callExpression.MethodName == methodName)
+                {
+                    return true;
+                }
+
+                if (statement is IfIR conditional &&
+                    (CallsMethod(conditional.ThenBlock.Statements, methodName) ||
+                     conditional.ElseBlock != null && CallsMethod(conditional.ElseBlock.Statements, methodName)))
+                {
+                    return true;
+                }
+
+                if (statement is WhileIR loop && CallsMethod(loop.Body.Statements, methodName))
+                {
+                    return true;
+                }
+
+                if (statement is ForIR forLoop && CallsMethod(forLoop.Body.Statements, methodName))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool ReferencesAnyField(IEnumerable<StatementIR> statements, HashSet<string> fieldNames)
+        {
+            foreach (var statement in statements)
+            {
+                if (statement switch
+                {
+                    VariableDeclarationIR variable => ReferencesAnyField(variable.Initializer, fieldNames),
+                    AssignmentIR assignment => ReferencesAnyField(assignment.TargetExpression, fieldNames) ||
+                        ReferencesAnyField(assignment.Value, fieldNames) || fieldNames.Contains(assignment.Target),
+                    CallIR call => call.Arguments.Any(argument => ReferencesAnyField(argument, fieldNames)),
+                    ExpressionStatementIR expression => ReferencesAnyField(expression.Expression, fieldNames),
+                    IfIR conditional => ReferencesAnyField(conditional.Condition, fieldNames) ||
+                        ReferencesAnyField(conditional.ThenBlock.Statements, fieldNames) ||
+                        conditional.ElseBlock != null && ReferencesAnyField(conditional.ElseBlock.Statements, fieldNames),
+                    WhileIR loop => ReferencesAnyField(loop.Condition, fieldNames) ||
+                        ReferencesAnyField(loop.Body.Statements, fieldNames),
+                    ForIR forLoop => ReferencesAnyField(forLoop.Initializer, fieldNames) ||
+                        ReferencesAnyField(forLoop.Condition, fieldNames) ||
+                        ReferencesAnyField(forLoop.Iterator, fieldNames) ||
+                        ReferencesAnyField(forLoop.Body.Statements, fieldNames),
+                    _ => false
+                })
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool ReferencesAnyField(StatementIR? statement, HashSet<string> fieldNames)
+        {
+            return statement != null && ReferencesAnyField(new[] { statement }, fieldNames);
+        }
+
+        private static bool ReferencesAnyField(ExpressionIR? expression, HashSet<string> fieldNames)
+        {
+            return expression switch
+            {
+                IdentifierIR identifier => fieldNames.Contains(identifier.Name),
+                BinaryIR binary => ReferencesAnyField(binary.Left, fieldNames) || ReferencesAnyField(binary.Right, fieldNames),
+                UnaryIR unary => ReferencesAnyField(unary.Operand, fieldNames),
+                CallExpressionIR call => call.Arguments.Any(argument => ReferencesAnyField(argument, fieldNames)),
+                MemberAccessIR member => ReferencesAnyField(member.Target, fieldNames),
+                ArrayAccessIR array => ReferencesAnyField(array.Array, fieldNames) || ReferencesAnyField(array.Index, fieldNames),
+                ArrayLiteralIR array => array.Elements.Any(element => ReferencesAnyField(element, fieldNames)),
+                _ => false
+            };
         }
 
         private void GenerateStatement(StatementIR stmt)
