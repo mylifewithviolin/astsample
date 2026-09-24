@@ -196,6 +196,21 @@ namespace ReMindParser
             if (_tokens[_index].Type == TokenType.Box)
             {
                 _index++;
+                if (MatchText("脱出する"))
+                {
+                    _index++;
+                    return new BreakStatement();
+                }
+                if (MatchText("ループ先頭へ"))
+                {
+                    _index++;
+                    return new ContinueStatement();
+                }
+                if (MatchText("return"))
+                {
+                    _index++;
+                    return new ReturnStatement { Value = ParseExpression() };
+                }
                 var expr = ParseExpression();
 
                 if (TryConsumeReturnMarker(expr))
@@ -289,6 +304,16 @@ namespace ReMindParser
             if (_tokens[_index].Type == TokenType.Circle)
             {
                 _index++;
+                if (MatchText("繰り返す"))
+                {
+                    _index++;
+                    var infiniteLoop = new WhileStatement
+                    {
+                        Condition = new LiteralExpression { Value = true }
+                    };
+                    ParseLoopBody(infiniteLoop.Body);
+                    return infiniteLoop;
+                }
                 if (_index + 2 < _tokens.Count && _tokens[_index].Type == TokenType.Identifier && _tokens[_index + 1].Type == TokenType.Identifier && _tokens[_index + 2].Type == TokenType.Assign)
                 {
                     var type = TakeText("for initializer type");

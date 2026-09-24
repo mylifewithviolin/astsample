@@ -306,6 +306,12 @@ namespace ReMindBackend
                         ? "Return"
                         : $"Return {GenerateExpression(returnStatement.Value)}");
                     break;
+                case BreakIR:
+                    _w.WriteLine("Exit While");
+                    break;
+                case ContinueIR:
+                    _w.WriteLine("Continue While");
+                    break;
             }
         }
 

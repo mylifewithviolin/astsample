@@ -1,0 +1,29 @@
+package priority03returnkeyword;
+
+import java.lang.System;
+
+/**
+ * プログラム型
+ */
+public class Program
+{
+    /**
+     * メイン
+     * @param args 引数
+     */
+    public static void main(String[] args)
+    {
+        String 結果 = returnText();
+        System.out.println(結果);
+    }
+    
+    /**
+     * 結果を返す
+     */
+    public static String returnText()
+    {
+        return "return-keyword-ok";
+    }
+    
+}
+

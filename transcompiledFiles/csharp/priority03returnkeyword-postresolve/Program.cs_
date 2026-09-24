@@ -1,0 +1,23 @@
+using System;
+
+namespace Priority03ReturnKeyword
+{
+    /// <summary>プログラム型</summary>
+    public class Program
+    {
+        /// <summary>メイン</summary>
+        /// <param name="args">引数</param>
+        static void Main(string[] args)
+        {
+            string 結果 = ReturnText();
+            Console.WriteLine(結果);
+        }
+        
+        /// <summary>結果を返す</summary>
+        static string ReturnText()
+        {
+            return "return-keyword-ok";
+        }
+        
+    }
+}

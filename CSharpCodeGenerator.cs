@@ -219,6 +219,16 @@ namespace ReMindBackend
             {
                 _w.WriteLine(returnStatement.Value == null ? "return;" : $"return {GenerateExpression(returnStatement.Value)};");
             }
+
+            if (stmt is BreakIR)
+            {
+                _w.WriteLine("break;");
+            }
+
+            if (stmt is ContinueIR)
+            {
+                _w.WriteLine("continue;");
+            }
         }
 
         private string GenerateExpression(ExpressionIR expr)

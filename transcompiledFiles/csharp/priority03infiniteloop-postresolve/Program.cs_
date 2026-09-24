@@ -1,0 +1,25 @@
+using System;
+
+namespace Priority03InfiniteLoop
+{
+    /// <summary>プログラム型</summary>
+    public class Program
+    {
+        /// <summary>メイン</summary>
+        /// <param name="args">引数</param>
+        static void Main(string[] args)
+        {
+            int 回数 = 0;
+            while (true)
+            {
+                回数++;
+                if (回数 == 3)
+                {
+                    break;
+                }
+            }
+            Console.WriteLine(回数);
+        }
+        
+    }
+}

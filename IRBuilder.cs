@@ -128,6 +128,8 @@ namespace ReMindAst
                 {
                     Value = returnStatement.Value != null ? BuildExpression(returnStatement.Value) : null
                 },
+                BreakStatement => new BreakIR(),
+                ContinueStatement => new ContinueIR(),
                 _ => throw new System.NotSupportedException()
             };
         }
