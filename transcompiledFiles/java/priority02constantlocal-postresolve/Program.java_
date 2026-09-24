@@ -1,0 +1,29 @@
+package priority02constantlocal;
+
+import java.lang.System;
+
+/**
+ * プログラム型
+ */
+public class Program
+{
+    /**
+     * メイン
+     * @param args 引数
+     */
+    public static void main(String[] args)
+    {
+        /**
+         * 制限値
+         */
+        final int limit = 3;
+        /**
+         * 固定文
+         */
+        final String label = "constant-ok";
+        System.out.println(limit);
+        System.out.println(label);
+    }
+    
+}
+

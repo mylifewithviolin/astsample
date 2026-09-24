@@ -81,6 +81,7 @@ namespace ReMindAst
     public class LocalVariableDeclaration : Statement
     {
         public JavadocComment? Javadoc { get; set; }
+        public bool IsConstant { get; set; }
         public string Type { get; set; } = "";
         public string NameJa { get; set; } = "";
         public string NameEn { get; set; } = "";

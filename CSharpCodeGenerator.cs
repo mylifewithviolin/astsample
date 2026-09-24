@@ -131,7 +131,8 @@ namespace ReMindBackend
             if (stmt is VariableDeclarationIR variable)
             {
                 GenerateDocumentation(variable.Documentation);
-                _w.WriteLine($"{variable.Type} {variable.Name} = {GenerateExpression(variable.Initializer)};");
+                var declarationPrefix = variable.IsConstant ? "const " : string.Empty;
+                _w.WriteLine($"{declarationPrefix}{variable.Type} {variable.Name} = {GenerateExpression(variable.Initializer)};");
             }
 
             if (stmt is AssignmentIR assignment)

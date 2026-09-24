@@ -345,6 +345,11 @@ namespace ReMindParser
         {
             _index++;
             var type = ParseTypeName();
+            var isConstant = type.StartsWith("定数", StringComparison.Ordinal);
+            if (isConstant)
+            {
+                type = type == "定数" ? ParseTypeName() : type[2..];
+            }
             var nameJa = TakeText("local variable name");
             Expression? initializer = null;
             if (_index < _tokens.Count && _tokens[_index].Type == TokenType.Assign)
@@ -370,7 +375,7 @@ namespace ReMindParser
                     initializer = ParseExpression();
                 }
             }
-            return new LocalVariableDeclaration { Javadoc = documentation, Type = type, NameJa = nameJa, NameEn = ResolveTargetName(nameJa), Initializer = initializer };
+            return new LocalVariableDeclaration { Javadoc = documentation, IsConstant = isConstant, Type = type, NameJa = nameJa, NameEn = ResolveTargetName(nameJa), Initializer = initializer };
         }
 
         // 「値を　返す」構文を検出する。「を」が直前の識別子に結合している場合と、独立トークンの場合の両方に対応する。

@@ -109,6 +109,7 @@ namespace ReMindAst
                 LocalVariableDeclaration localVariable => new VariableDeclarationIR
                 {
                     Documentation = BuildDocumentation(localVariable.Javadoc, localVariable.NameJa),
+                    IsConstant = localVariable.IsConstant,
                     Type = localVariable.Type,
                     Name = localVariable.NameEn,
                     Initializer = BuildExpression(localVariable.Initializer!)

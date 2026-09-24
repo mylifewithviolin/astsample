@@ -74,12 +74,17 @@ namespace ReMindParser
                 switch (statement)
                 {
                     case LocalVariableDeclaration localVariable:
+                        if (localVariable.IsConstant && localVariable.Type.EndsWith("[]", StringComparison.Ordinal))
+                        {
+                            throw new InvalidOperationException($"Constant array '{localVariable.NameJa}' is not supported for local declarations.");
+                        }
                         if (localVariable.Initializer != null)
                         {
                             ValidateExpression(localVariable.Initializer, symbols);
                             RequireAssignable(localVariable.Type, InferType(localVariable.Initializer, symbols), localVariable.NameJa);
                         }
-                        symbols[localVariable.NameJa] = new Symbol(localVariable.NameJa, localVariable.Type, SymbolKind.Variable);
+                        symbols[localVariable.NameJa] = new Symbol(localVariable.NameJa, localVariable.Type,
+                            localVariable.IsConstant ? SymbolKind.Constant : SymbolKind.Variable);
                         break;
                     case AssignmentStatement assignment:
                         ValidateAssignment(assignment, symbols);

@@ -70,6 +70,7 @@ namespace ReMindAst
     public class VariableDeclarationIR : StatementIR
     {
         public DocumentationIR? Documentation { get; set; }
+        public bool IsConstant { get; set; }
         public string Type { get; set; } = "";
         public string Name { get; set; } = "";
         public ExpressionIR Initializer { get; set; } = null!;

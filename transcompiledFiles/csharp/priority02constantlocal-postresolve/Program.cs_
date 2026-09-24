@@ -1,0 +1,21 @@
+using System;
+
+namespace Priority02ConstantLocal
+{
+    /// <summary>プログラム型</summary>
+    public class Program
+    {
+        /// <summary>メイン</summary>
+        /// <param name="args">引数</param>
+        static void Main(string[] args)
+        {
+            /// <summary>制限値</summary>
+            const int limit = 3;
+            /// <summary>固定文</summary>
+            const string label = "constant-ok";
+            Console.WriteLine(limit);
+            Console.WriteLine(label);
+        }
+        
+    }
+}

@@ -253,7 +253,8 @@ namespace ReMindBackend
             {
                 case VariableDeclarationIR variable:
                     GenerateDocumentation(variable.Documentation);
-                    _w.WriteLine($"Dim {variable.Name} As {MapType(variable.Type)} = {GenerateExpression(variable.Initializer)}");
+                    var declarationPrefix = variable.IsConstant ? "Const" : "Dim";
+                    _w.WriteLine($"{declarationPrefix} {variable.Name} As {MapType(variable.Type)} = {GenerateExpression(variable.Initializer)}");
                     break;
                 case AssignmentIR assignment:
                     var target = assignment.TargetExpression == null

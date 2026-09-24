@@ -131,7 +131,8 @@ namespace ReMindBackend
                 case VariableDeclarationIR variable:
                     GenerateDocumentation(variable.Documentation);
                     var variableName = NormalizeJavaIdentifier(variable.Name);
-                    _w.WriteLine($"{MapType(variable.Type)} {variableName} = {GenerateExpression(variable.Initializer)};");
+                    var declarationPrefix = variable.IsConstant ? "final " : string.Empty;
+                    _w.WriteLine($"{declarationPrefix}{MapType(variable.Type)} {variableName} = {GenerateExpression(variable.Initializer)};");
                     break;
                 case AssignmentIR assignment:
                     var target = assignment.TargetExpression == null
