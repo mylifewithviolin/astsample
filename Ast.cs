@@ -117,6 +117,12 @@ namespace ReMindAst
         public List<Statement> Body { get; } = new();
     }
 
+    public class DoWhileStatement : Statement
+    {
+        public Expression Condition { get; set; } = null!;
+        public List<Statement> Body { get; } = new();
+    }
+
     public class IfStatement : Statement
     {
         public Expression Condition { get; set; } = null!;

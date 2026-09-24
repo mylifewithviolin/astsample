@@ -304,6 +304,28 @@ namespace ReMindParser
             if (_tokens[_index].Type == TokenType.Circle)
             {
                 _index++;
+                if (MatchText("ここから"))
+                {
+                    _index++;
+                    var doWhileStatement = new DoWhileStatement();
+                    while (_index < _tokens.Count && _tokens[_index].Type != TokenType.Circle)
+                    {
+                        doWhileStatement.Body.Add(ParseStatement());
+                    }
+                    if (_index >= _tokens.Count)
+                    {
+                        throw new InvalidOperationException("Expected do-while condition.");
+                    }
+                    _index++;
+                    doWhileStatement.Condition = ParseExpression();
+                    if (_index >= _tokens.Count || !_tokens[_index].Text.StartsWith("の間は", StringComparison.Ordinal))
+                    {
+                        throw new InvalidOperationException("Expected 'の間は' after do-while condition.");
+                    }
+                    _index++;
+                    if (MatchText("繰り返す")) _index++;
+                    return doWhileStatement;
+                }
                 if (MatchText("繰り返す"))
                 {
                     _index++;

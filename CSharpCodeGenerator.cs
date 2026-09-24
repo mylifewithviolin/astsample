@@ -215,6 +215,19 @@ namespace ReMindBackend
                 _w.WriteLine("}");
             }
 
+            if (stmt is DoWhileIR doWhileStatement)
+            {
+                _w.WriteLine("do");
+                _w.WriteLine("{");
+                _w.Indent();
+                foreach (var statement in doWhileStatement.Body.Statements)
+                {
+                    GenerateStatement(statement);
+                }
+                _w.Unindent();
+                _w.WriteLine($"}} while ({GenerateExpression(doWhileStatement.Condition)});");
+            }
+
             if (stmt is ReturnIR returnStatement)
             {
                 _w.WriteLine(returnStatement.Value == null ? "return;" : $"return {GenerateExpression(returnStatement.Value)};");

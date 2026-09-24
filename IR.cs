@@ -107,6 +107,12 @@ namespace ReMindAst
         public BlockIR Body { get; } = new();
     }
 
+    public class DoWhileIR : StatementIR
+    {
+        public ExpressionIR Condition { get; set; } = null!;
+        public BlockIR Body { get; } = new();
+    }
+
     public class ForIR : StatementIR
     {
         public StatementIR Initializer { get; set; } = null!;

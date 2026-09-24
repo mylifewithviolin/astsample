@@ -123,6 +123,7 @@ namespace ReMindAst
                     },
                 IfStatement ifStatement => BuildIfStatement(ifStatement),
                 WhileStatement whileStatement => BuildWhileStatement(whileStatement),
+                DoWhileStatement doWhileStatement => BuildDoWhileStatement(doWhileStatement),
                 ForStatement forStatement => BuildForStatement(forStatement),
                 ReturnStatement returnStatement => new ReturnIR
                 {
@@ -208,6 +209,19 @@ namespace ReMindAst
                 result.Body.Statements.Add(BuildStatement(statement));
             }
 
+            return result;
+        }
+
+        private DoWhileIR BuildDoWhileStatement(DoWhileStatement doWhileStatement)
+        {
+            var result = new DoWhileIR
+            {
+                Condition = BuildExpression(doWhileStatement.Condition)
+            };
+            foreach (var statement in doWhileStatement.Body)
+            {
+                result.Body.Statements.Add(BuildStatement(statement));
+            }
             return result;
         }
 

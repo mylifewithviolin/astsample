@@ -101,6 +101,10 @@ namespace ReMindParser
                         RequireBoolean(whileStatement.Condition, symbols, "While");
                         ResolveStatements(whileStatement.Body, new Dictionary<string, Symbol>(symbols, StringComparer.Ordinal), returnType);
                         break;
+                    case DoWhileStatement doWhileStatement:
+                        RequireBoolean(doWhileStatement.Condition, symbols, "DoWhile");
+                        ResolveStatements(doWhileStatement.Body, new Dictionary<string, Symbol>(symbols, StringComparer.Ordinal), returnType);
+                        break;
                     case ForStatement forStatement:
                         var loopSymbols = new Dictionary<string, Symbol>(symbols, StringComparer.Ordinal);
                         if (forStatement.Initializer != null)

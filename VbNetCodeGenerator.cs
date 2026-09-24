@@ -298,6 +298,16 @@ namespace ReMindBackend
                     _w.Unindent();
                     _w.WriteLine("End While");
                     break;
+                case DoWhileIR loop:
+                    _w.WriteLine("Do");
+                    _w.Indent();
+                    foreach (var nested in loop.Body.Statements)
+                    {
+                        GenerateStatement(nested);
+                    }
+                    _w.Unindent();
+                    _w.WriteLine($"Loop While {GenerateExpression(loop.Condition)}");
+                    break;
                 case ForIR loop:
                     GenerateFor(loop);
                     break;

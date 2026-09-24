@@ -191,6 +191,17 @@ namespace ReMindBackend
                     _w.Unindent();
                     _w.WriteLine("}");
                     break;
+                case DoWhileIR loop:
+                    _w.WriteLine("do");
+                    _w.WriteLine("{");
+                    _w.Indent();
+                    foreach (var nested in loop.Body.Statements)
+                    {
+                        GenerateStatement(nested);
+                    }
+                    _w.Unindent();
+                    _w.WriteLine($"}} while ({GenerateExpression(loop.Condition)});");
+                    break;
                 case ForIR loop:
                     _w.WriteLine($"for ({GenerateInlineStatement(loop.Initializer)}; {GenerateExpression(loop.Condition)}; {GenerateExpression(loop.Iterator)})");
                     _w.WriteLine("{");
