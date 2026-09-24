@@ -1,0 +1,23 @@
+package priority06nulloperator;
+
+import java.lang.System;
+
+/**
+ * プログラム型
+ */
+public class Program
+{
+    /**
+     * メイン
+     * @param args 引数
+     */
+    _static void main(String[] args)
+    {
+        String 名前 = null;
+        String 候補 = (名前 == null ? null : 名前.toString());
+        String 結果 = 候補 ?? "none";
+        System.out.println(結果);
+    }
+    
+}
+

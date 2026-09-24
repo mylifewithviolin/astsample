@@ -1,0 +1,28 @@
+using System;
+
+namespace Priority05Switch
+{
+    /// <summary>プログラム型</summary>
+    public class Program
+    {
+        /// <summary>メイン</summary>
+        /// <param name="args">引数</param>
+        static void Main(string[] args)
+        {
+            int 値 = 2;
+            switch (値)
+            {
+                case 1:
+                    Console.WriteLine("one");
+                    break;
+                case 2:
+                    Console.WriteLine("two");
+                    break;
+                default:
+                    Console.WriteLine("default");
+                    break;
+            }
+        }
+        
+    }
+}

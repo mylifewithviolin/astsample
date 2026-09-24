@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using ReMindAst;
 
 namespace ReMindParser
@@ -80,6 +81,10 @@ namespace ReMindParser
                         }
                         if (localVariable.Initializer != null)
                         {
+                            if (localVariable.Initializer is NewExpression newExpression && string.IsNullOrEmpty(newExpression.TypeName))
+                            {
+                                newExpression.TypeName = localVariable.Type;
+                            }
                             ValidateExpression(localVariable.Initializer, symbols);
                             RequireAssignable(localVariable.Type, InferType(localVariable.Initializer, symbols), localVariable.NameJa);
                         }
@@ -127,6 +132,25 @@ namespace ReMindParser
                         {
                             throw new InvalidOperationException($"Return type mismatch: method returns '{returnType}' but no value was returned.");
                         }
+                        break;
+                    case ThrowStatement throwStatement:
+                        ValidateExpression(throwStatement.Value, symbols);
+                        break;
+                    case SwitchStatement switchStatement:
+                        ValidateExpression(switchStatement.Expression, symbols);
+                        foreach (var switchCase in switchStatement.Cases)
+                        {
+                            if (switchCase.Value != null) ValidateExpression(switchCase.Value, symbols);
+                            ResolveStatements(switchCase.Body, new Dictionary<string, Symbol>(symbols, StringComparer.Ordinal), returnType);
+                        }
+                        break;
+                    case TryCatchStatement tryCatchStatement:
+                        ResolveStatements(tryCatchStatement.TryBody, new Dictionary<string, Symbol>(symbols, StringComparer.Ordinal), returnType);
+                        foreach (var clause in tryCatchStatement.CatchClauses)
+                        {
+                            ResolveStatements(clause.Body, new Dictionary<string, Symbol>(symbols, StringComparer.Ordinal), returnType);
+                        }
+                        ResolveStatements(tryCatchStatement.FinallyBody, new Dictionary<string, Symbol>(symbols, StringComparer.Ordinal), returnType);
                         break;
                 }
             }
@@ -214,6 +238,11 @@ namespace ReMindParser
                 return;
             }
 
+            if (binary.Operator == "??")
+            {
+                return;
+            }
+
             if (binary.Operator is "==" or "!=" or "<" or ">" or "<=" or ">=")
             {
                 if (leftType != rightType)
@@ -241,6 +270,12 @@ namespace ReMindParser
                 return;
             }
 
+            if (invocation.Target is MemberAccessExpression aliasedMember &&
+                (IsAliasMember(aliasedMember) || IsInstanceMethod(aliasedMember, symbols) || IsBuiltInMember(aliasedMember.MemberName)))
+            {
+                return;
+            }
+
             if (invocation.Target is not IdentifierExpression identifier || !_methods.TryGetValue(identifier.NameJa, out var method))
             {
                 throw new InvalidOperationException($"Undefined method '{GetExpressionName(invocation.Target)}'.");
@@ -264,6 +299,13 @@ namespace ReMindParser
                 return;
             }
             ValidateExpression(memberAccess.Expression, symbols);
+            if (memberAccess.Expression is IdentifierExpression identifier &&
+                symbols.TryGetValue(identifier.NameJa, out var symbol) &&
+                GetFieldType(symbol.Type, memberAccess.MemberName) == null &&
+                !IsBuiltInMember(memberAccess.MemberName))
+            {
+                throw new InvalidOperationException($"Undefined member '{memberAccess.MemberName}' on '{symbol.Type}'.");
+            }
         }
 
         private static bool IsConsoleWriteLine(MemberAccessExpression memberAccess)
@@ -280,12 +322,19 @@ namespace ReMindParser
                 LiteralExpression literal when literal.Value is bool => "bool",
                 LiteralExpression literal when literal.Value is int => "int",
                 LiteralExpression literal when literal.Value is string => "string",
+                NullLiteralExpression => "null",
+                NewExpression newExpression => newExpression.TypeName,
                 IdentifierExpression identifier when symbols.TryGetValue(identifier.NameJa, out var symbol) => symbol.Type,
                 BinaryExpression binary when binary.Operator is "==" or "!=" or "<" or ">" or "<=" or ">=" or "&&" or "||" => "bool",
+                BinaryExpression binary when binary.Operator == "??" => InferType(binary.Right, symbols),
                 BinaryExpression binary => InferType(binary.Left, symbols),
                 UnaryExpression unary when unary.Operator == "!" => "bool",
                 UnaryExpression unary => InferType(unary.Operand, symbols),
                 InvocationExpression invocation when invocation.Target is IdentifierExpression identifier && _methods.TryGetValue(identifier.NameJa, out var method) => method.ReturnType,
+                InvocationExpression invocation when invocation.Target is MemberAccessExpression memberAccess && IsAliasMember(memberAccess) => GetAliasMember(memberAccess).ReturnType,
+                InvocationExpression invocation when invocation.Target is MemberAccessExpression memberAccess && IsBuiltInMember(memberAccess.MemberName) => "string",
+                InvocationExpression invocation when invocation.Target is MemberAccessExpression memberAccess => InferInstanceMethodType(memberAccess, symbols) ?? "object",
+                MemberAccessExpression memberAccess when memberAccess.Expression is IdentifierExpression identifier && symbols.TryGetValue(identifier.NameJa, out var symbol) => GetFieldType(symbol.Type, memberAccess.MemberName) ?? "object",
                 ElementAccessExpression elementAccess => InferType(elementAccess.ArrayExpression, symbols).TrimEnd('[', ']'),
                 ArrayLiteralExpression array => $"{array.ElementType}[]",
                 _ => "object"
@@ -294,11 +343,70 @@ namespace ReMindParser
 
         private static void RequireAssignable(string expectedType, string actualType, string targetName)
         {
+            if (actualType == "null" && expectedType.EndsWith("?", StringComparison.Ordinal))
+            {
+                return;
+            }
+            if (expectedType.EndsWith("?", StringComparison.Ordinal) &&
+                string.Equals(expectedType.TrimEnd('?'), actualType, StringComparison.Ordinal))
+            {
+                return;
+            }
             if (!string.Equals(expectedType, actualType, StringComparison.Ordinal))
             {
                 throw new InvalidOperationException($"Type mismatch for '{targetName}': expected '{expectedType}' but was '{actualType}'.");
             }
         }
+
+        private bool IsAliasMember(MemberAccessExpression memberAccess)
+        {
+            return memberAccess.Expression is IdentifierExpression identifier &&
+                _ast.Imports.SelectMany(import => import.AliasClasses)
+                    .Where(alias => alias.OriginalName == identifier.NameJa)
+                    .SelectMany(alias => alias.Members)
+                    .Any(member => member.OriginalName == memberAccess.MemberName);
+        }
+
+        private AliasMember GetAliasMember(MemberAccessExpression memberAccess)
+        {
+            var identifier = (IdentifierExpression)memberAccess.Expression;
+            return _ast.Imports.SelectMany(import => import.AliasClasses)
+                .Where(alias => alias.OriginalName == identifier.NameJa)
+                .SelectMany(alias => alias.Members)
+                .First(member => member.OriginalName == memberAccess.MemberName);
+        }
+
+        private bool IsInstanceMethod(MemberAccessExpression memberAccess, Dictionary<string, Symbol> symbols)
+        {
+            return memberAccess.Expression is IdentifierExpression identifier &&
+                symbols.TryGetValue(identifier.NameJa, out var symbol) &&
+                FindMethod(symbol.Type, memberAccess.MemberName) != null;
+        }
+
+        private string? InferInstanceMethodType(MemberAccessExpression memberAccess, Dictionary<string, Symbol> symbols)
+        {
+            if (memberAccess.Expression is not IdentifierExpression identifier || !symbols.TryGetValue(identifier.NameJa, out var symbol)) return null;
+            return FindMethod(symbol.Type, memberAccess.MemberName);
+        }
+
+        private string? GetFieldType(string typeName, string fieldName)
+        {
+            return _ast.Namespaces.SelectMany(ns => ns.Classes)
+                .FirstOrDefault(cls => cls.NameJa == typeName || cls.NameEn == typeName)?
+                .Fields.FirstOrDefault(field => field.NameJa == fieldName || field.NameEn == fieldName)?.Type;
+        }
+
+        private string? FindMethod(string typeName, string methodName)
+        {
+            return _ast.Namespaces.SelectMany(ns => ns.Classes)
+                .FirstOrDefault(cls => cls.NameJa == typeName || cls.NameEn == typeName)?
+                .Methods.FirstOrDefault(method => method.NameJa == methodName || method.NameEn == methodName)?.ReturnType;
+        }
+
+            private static bool IsBuiltInMember(string memberName)
+            {
+                return memberName is "ToString" or "toString" or "Length";
+            }
 
         private static string GetExpressionName(Expression expression)
         {

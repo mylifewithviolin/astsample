@@ -9,6 +9,7 @@ namespace ReMindBackend
     {
         private readonly IndentWriter _w = new();
         private readonly MappingTable _mappingTable;
+        private Dictionary<string, AliasClass> _aliasMap = new(StringComparer.Ordinal);
 
         public VbNetCodeGenerator() : this(new MappingTable())
         {
@@ -48,6 +49,7 @@ namespace ReMindBackend
 
         public string Generate(ProgramIR program)
         {
+            _aliasMap = program.AliasClasses.ToDictionary(alias => alias.OriginalName, StringComparer.Ordinal);
             foreach (var import in program.Imports)
             {
                 _w.WriteLine($"Imports {import}");
@@ -81,7 +83,8 @@ namespace ReMindBackend
         private void GenerateClass(ClassIR classIR)
         {
             GenerateDocumentation(classIR.Documentation);
-            _w.WriteLine($"Public Class {classIR.Name}");
+            var baseType = string.IsNullOrEmpty(classIR.BaseType) ? "" : $" Inherits {classIR.BaseType}";
+            _w.WriteLine($"Public Class {classIR.Name}{baseType}");
             _w.Indent();
 
             foreach (var field in classIR.Fields)
@@ -322,6 +325,57 @@ namespace ReMindBackend
                 case ContinueIR:
                     _w.WriteLine("Continue While");
                     break;
+                case ThrowIR throwStatement:
+                    _w.WriteLine($"Throw {GenerateExpression(throwStatement.Value)}");
+                    break;
+                case SwitchIR switchStatement:
+                    _w.WriteLine($"Select Case {GenerateExpression(switchStatement.Expression)}");
+                    _w.Indent();
+                    foreach (var switchCase in switchStatement.Cases)
+                    {
+                        _w.WriteLine(switchCase.Value == null
+                            ? "Case Else"
+                            : $"Case {GenerateExpression(switchCase.Value)}");
+                        _w.Indent();
+                        foreach (var nested in switchCase.Body.Statements)
+                        {
+                            GenerateStatement(nested);
+                        }
+                        _w.Unindent();
+                    }
+                    _w.Unindent();
+                    _w.WriteLine("End Select");
+                    break;
+                case TryCatchIR tryCatch:
+                    _w.WriteLine("Try");
+                    _w.Indent();
+                    foreach (var nested in tryCatch.TryBlock.Statements)
+                    {
+                        GenerateStatement(nested);
+                    }
+                    _w.Unindent();
+                    foreach (var clause in tryCatch.CatchClauses)
+                    {
+                        _w.WriteLine($"Catch {clause.VariableName} As {MapType(clause.ExceptionType)}");
+                        _w.Indent();
+                        foreach (var nested in clause.Body.Statements)
+                        {
+                            GenerateStatement(nested);
+                        }
+                        _w.Unindent();
+                    }
+                    if (tryCatch.FinallyBlock.Statements.Count > 0)
+                    {
+                        _w.WriteLine("Finally");
+                        _w.Indent();
+                        foreach (var nested in tryCatch.FinallyBlock.Statements)
+                        {
+                            GenerateStatement(nested);
+                        }
+                        _w.Unindent();
+                    }
+                    _w.WriteLine("End Try");
+                    break;
             }
         }
 
@@ -356,8 +410,12 @@ namespace ReMindBackend
                 UnaryIR unary => unary.Operator == "++"
                     ? $"{GenerateExpression(unary.Operand)} += 1"
                     : $"{MapUnaryOperator(unary.Operator)} {GenerateExpression(unary.Operand)}",
+                NewExpressionIR newExpression => $"New {newExpression.TypeName}({string.Join(", ", newExpression.Arguments.Select(argument => GenerateExpression(argument)))})",
+                CallExpressionIR call when call.IsNullConditional => GenerateNullConditionalCall(call),
                 CallExpressionIR call => $"{MapCall(call.MethodName)}({string.Join(", ", call.Arguments.Select(GenerateExpression))})",
-                MemberAccessIR member => $"{GenerateExpression(member.Target)}.{member.MemberName}",
+                MemberAccessIR member => member.IsNullConditional
+                    ? $"If({GenerateExpression(member.Target)}, {GenerateExpression(member.Target)}.{member.MemberName}, Nothing)"
+                    : $"{GenerateExpression(member.Target)}.{member.MemberName}",
                 ArrayAccessIR array => $"{GenerateExpression(array.Array)}({GenerateExpression(array.Index)})",
                 ArrayLiteralIR array => $"{{ {string.Join(", ", array.Elements.Select(GenerateExpression))} }}",
                 _ => ""
@@ -382,6 +440,20 @@ namespace ReMindBackend
             return $"{leftText} {op} {rightText}";
         }
 
+        private string GenerateNullConditionalCall(CallExpressionIR call)
+        {
+            var separator = call.MethodName.IndexOf("?.", StringComparison.Ordinal);
+            var separatorLength = separator >= 0 ? 2 : 1;
+            if (separator < 0)
+            {
+                separator = call.MethodName.IndexOf('.', StringComparison.Ordinal);
+            }
+            var target = separator > 0 ? call.MethodName[..separator] : call.MethodName;
+            var method = separator > 0 ? call.MethodName[(separator + separatorLength)..] : "";
+            var arguments = string.Join(", ", call.Arguments.Select(argument => GenerateExpression(argument)));
+            return $"If({target}, {target}.{method}({arguments}), Nothing)";
+        }
+
         private string MapParameter(string parameter)
         {
             var parts = parameter.Split(' ', 2);
@@ -390,10 +462,32 @@ namespace ReMindBackend
 
         private string MapCall(string methodName)
         {
-            return methodName == "コンソール.一行表示する" ||
-                   methodName.Equals("ConsoleOut", StringComparison.OrdinalIgnoreCase)
+            var resolvedMethodName = ResolveAliasCall(methodName);
+            return resolvedMethodName == "コンソール.一行表示する" ||
+                   resolvedMethodName.Equals("ConsoleOut", StringComparison.OrdinalIgnoreCase)
                 ? "Console.WriteLine"
-                : methodName;
+                : resolvedMethodName;
+        }
+
+        private string ResolveAliasCall(string methodName)
+        {
+            var separator = methodName.IndexOf('.', StringComparison.Ordinal);
+            if (separator <= 0)
+            {
+                return methodName;
+            }
+
+            var className = methodName[..separator];
+            var memberName = methodName[(separator + 1)..];
+            if (!_aliasMap.TryGetValue(className, out var aliasClass))
+            {
+                return methodName;
+            }
+
+            var aliasMember = aliasClass.Members.FirstOrDefault(member => member.OriginalName == memberName);
+            return aliasMember == null
+                ? methodName
+                : $"{aliasClass.TranspiledName}.{aliasMember.TranspiledName}";
         }
 
         private void GenerateDocumentation(DocumentationIR? documentation)

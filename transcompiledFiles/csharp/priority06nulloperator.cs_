@@ -1,0 +1,19 @@
+using System;
+
+namespace Priority06NullOperator
+{
+    /// <summary>プログラム型</summary>
+    public class Program
+    {
+        /// <summary>メイン</summary>
+        /// <param name="args">引数</param>
+        static void Main(string[] args)
+        {
+            string? 名前 = null;
+            string? 候補 = (名前 == null ? null : 名前.ToString());
+            string 結果 = 候補 ?? "none";
+            Console.WriteLine(結果);
+        }
+        
+    }
+}

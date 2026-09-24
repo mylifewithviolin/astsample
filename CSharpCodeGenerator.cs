@@ -52,6 +52,7 @@ namespace ReMindBackend
 
         public string Generate(ProgramIR program)
         {
+            _aliasMap = program.AliasClasses.ToDictionary(alias => alias.OriginalName, StringComparer.Ordinal);
             foreach (var import in program.Imports)
             {
                 _w.WriteLine($"using {import};");
@@ -79,7 +80,8 @@ namespace ReMindBackend
         private void GenerateClass(ClassIR classIR)
         {
             GenerateDocumentation(classIR.Documentation);
-            _w.WriteLine($"public class {classIR.Name}");
+            var baseType = string.IsNullOrEmpty(classIR.BaseType) ? "" : $" : {classIR.BaseType}";
+            _w.WriteLine($"public class {classIR.Name}{baseType}");
             _w.WriteLine("{");
             _w.Indent();
 
@@ -110,7 +112,9 @@ namespace ReMindBackend
         private void GenerateMethod(MethodIR methodIR)
         {
             GenerateDocumentation(methodIR.Documentation);
-            _w.WriteLine($"static {methodIR.ReturnType} {methodIR.Name}({string.Join(", ", methodIR.Parameters)})");
+            var methodModifiers = string.Join(" ", methodIR.Modifiers);
+            var modifierPrefix = string.IsNullOrEmpty(methodModifiers) ? "" : $"{methodModifiers} ";
+            _w.WriteLine($"{modifierPrefix}{methodIR.ReturnType} {methodIR.Name}({string.Join(", ", methodIR.Parameters)})");
             _w.WriteLine("{");
             _w.Indent();
 
@@ -159,9 +163,9 @@ namespace ReMindBackend
 
             if (stmt is CallIR call)
             {
-                var callName = call.MethodName.Equals("ConsoleOut", StringComparison.OrdinalIgnoreCase)
+                var callName = ResolveAliasCall(call.MethodName).Equals("ConsoleOut", StringComparison.OrdinalIgnoreCase)
                     ? "Console.WriteLine"
-                    : call.MethodName;
+                    : ResolveAliasCall(call.MethodName);
                 _w.WriteLine($"{callName}({string.Join(", ", call.Arguments.Select(argument => GenerateExpression(argument)))});");
             }
 
@@ -242,6 +246,69 @@ namespace ReMindBackend
             {
                 _w.WriteLine("continue;");
             }
+
+            if (stmt is ThrowIR throwStatement)
+            {
+                _w.WriteLine($"throw {GenerateExpression(throwStatement.Value)};");
+            }
+
+            if (stmt is SwitchIR switchStatement)
+            {
+                _w.WriteLine($"switch ({GenerateExpression(switchStatement.Expression)})");
+                _w.WriteLine("{");
+                _w.Indent();
+                foreach (var switchCase in switchStatement.Cases)
+                {
+                    _w.WriteLine(switchCase.Value == null
+                        ? "default:"
+                        : $"case {GenerateExpression(switchCase.Value)}:");
+                    _w.Indent();
+                    foreach (var nested in switchCase.Body.Statements)
+                    {
+                        GenerateStatement(nested);
+                    }
+                    _w.Unindent();
+                }
+                _w.Unindent();
+                _w.WriteLine("}");
+            }
+
+            if (stmt is TryCatchIR tryCatch)
+            {
+                _w.WriteLine("try");
+                _w.WriteLine("{");
+                _w.Indent();
+                foreach (var nested in tryCatch.TryBlock.Statements)
+                {
+                    GenerateStatement(nested);
+                }
+                _w.Unindent();
+                _w.WriteLine("}");
+                foreach (var clause in tryCatch.CatchClauses)
+                {
+                    _w.WriteLine($"catch ({clause.ExceptionType} {clause.VariableName})");
+                    _w.WriteLine("{");
+                    _w.Indent();
+                    foreach (var nested in clause.Body.Statements)
+                    {
+                        GenerateStatement(nested);
+                    }
+                    _w.Unindent();
+                    _w.WriteLine("}");
+                }
+                if (tryCatch.FinallyBlock.Statements.Count > 0)
+                {
+                    _w.WriteLine("finally");
+                    _w.WriteLine("{");
+                    _w.Indent();
+                    foreach (var nested in tryCatch.FinallyBlock.Statements)
+                    {
+                        GenerateStatement(nested);
+                    }
+                    _w.Unindent();
+                    _w.WriteLine("}");
+                }
+            }
         }
 
         private string GenerateExpression(ExpressionIR expr)
@@ -254,6 +321,7 @@ namespace ReMindBackend
             return op switch
             {
                 "==" or "!=" or "<" or ">" or "<=" or ">=" => 1,
+                "??" => 1,
                 "+" or "-" => 2,
                 "*" or "/" or "%" => 3,
                 _ => 0
@@ -275,10 +343,11 @@ namespace ReMindBackend
                     : $"{unary.Operator}{GenerateExpression(unary.Operand)}",
                 ArrayAccessIR arrayAccess => $"{GenerateExpression(arrayAccess.Array)}[{GenerateExpression(arrayAccess.Index)}]",
                 ArrayLiteralIR arrayLiteral => $"new {arrayLiteral.ElementType}[] {{ {string.Join(", ", arrayLiteral.Elements.Select(element => GenerateExpression(element)))} }}",
-                NewExpressionIR arrayCreation => $"new {arrayCreation.TypeName}[{GenerateExpression(arrayCreation.Arguments[0])}]",
+                NewExpressionIR newExpression => $"new {newExpression.TypeName}({string.Join(", ", newExpression.Arguments.Select(argument => GenerateExpression(argument)))})",
+                CallExpressionIR call when call.IsNullConditional => GenerateNullConditionalCall(call),
                 CallExpressionIR call when call.MethodName == "コンソール.一行表示する" => $"{_mappingTable.ConsoleWriteLine["コンソール.一行表示する"]}({string.Join(", ", call.Arguments.Select(argument => GenerateExpression(argument)))});",
-                CallExpressionIR call => $"{call.MethodName}({string.Join(", ", call.Arguments.Select(argument => GenerateExpression(argument)))})",
-                MemberAccessIR memberAccess => $"{GenerateExpression(memberAccess.Target)}.{memberAccess.MemberName}",
+                CallExpressionIR call => $"{ResolveAliasCall(call.MethodName)}({string.Join(", ", call.Arguments.Select(argument => GenerateExpression(argument)))})",
+                MemberAccessIR memberAccess => $"{GenerateExpression(memberAccess.Target)}{(memberAccess.IsNullConditional ? "?." : ".")}{memberAccess.MemberName}",
                 _ => string.Empty
             };
         }
@@ -303,6 +372,41 @@ namespace ReMindBackend
 
         private void ApplyFormattingInfo(string? formattingInfo)
         {
+        }
+
+        private string ResolveAliasCall(string methodName)
+        {
+            var separator = methodName.IndexOf('.', StringComparison.Ordinal);
+            if (separator <= 0)
+            {
+                return methodName;
+            }
+
+            var className = methodName[..separator];
+            var memberName = methodName[(separator + 1)..];
+            if (!_aliasMap.TryGetValue(className, out var aliasClass))
+            {
+                return methodName;
+            }
+
+            var aliasMember = aliasClass.Members.FirstOrDefault(member => member.OriginalName == memberName);
+            return aliasMember == null
+                ? methodName
+                : $"{aliasClass.TranspiledName}.{aliasMember.TranspiledName}";
+        }
+
+        private string GenerateNullConditionalCall(CallExpressionIR call)
+        {
+            var separator = call.MethodName.IndexOf("?.", StringComparison.Ordinal);
+            var separatorLength = separator >= 0 ? 2 : 1;
+            if (separator < 0)
+            {
+                separator = call.MethodName.IndexOf('.', StringComparison.Ordinal);
+            }
+            var target = separator > 0 ? call.MethodName[..separator] : call.MethodName;
+            var method = separator > 0 ? call.MethodName[(separator + separatorLength)..] : "";
+            var arguments = string.Join(", ", call.Arguments.Select(argument => GenerateExpression(argument)));
+            return $"({target} == null ? null : {target}.{method}({arguments}))";
         }
 
         private void GenerateDocumentation(DocumentationIR? documentation)

@@ -21,6 +21,7 @@ namespace ReMindAst
         public string? FormattingInfo { get; set; }
         public List<string> Namespaces { get; } = new();
         public List<string> Imports { get; } = new();
+        public List<AliasClass> AliasClasses { get; } = new();
         public List<ClassIR> Classes { get; } = new();
     }
 
@@ -29,6 +30,7 @@ namespace ReMindAst
         public string? Comment { get; set; }
         public string? FormattingInfo { get; set; }
         public string Name { get; set; } = "";
+        public string? BaseType { get; set; }
         public DocumentationIR? Documentation { get; set; }
         public List<FieldIR> Fields { get; } = new();
         public List<MethodIR> Methods { get; } = new();
@@ -134,6 +136,37 @@ namespace ReMindAst
     {
     }
 
+    public class ThrowIR : StatementIR
+    {
+        public ExpressionIR Value { get; set; } = null!;
+    }
+
+    public class SwitchIR : StatementIR
+    {
+        public ExpressionIR Expression { get; set; } = null!;
+        public List<SwitchCaseIR> Cases { get; } = new();
+    }
+
+    public class SwitchCaseIR
+    {
+        public ExpressionIR? Value { get; set; }
+        public BlockIR Body { get; } = new();
+    }
+
+    public class TryCatchIR : StatementIR
+    {
+        public BlockIR TryBlock { get; } = new();
+        public List<CatchClauseIR> CatchClauses { get; } = new();
+        public BlockIR FinallyBlock { get; } = new();
+    }
+
+    public class CatchClauseIR
+    {
+        public string ExceptionType { get; set; } = "Exception";
+        public string VariableName { get; set; } = "e";
+        public BlockIR Body { get; } = new();
+    }
+
     public abstract class ExpressionIR
     {
         public string? Comment { get; set; }
@@ -166,6 +199,7 @@ namespace ReMindAst
     public class CallExpressionIR : ExpressionIR
     {
         public string MethodName { get; set; } = "";
+        public bool IsNullConditional { get; set; }
         public List<ExpressionIR> Arguments { get; } = new();
     }
 
@@ -173,6 +207,7 @@ namespace ReMindAst
     {
         public ExpressionIR Target { get; set; } = null!;
         public string MemberName { get; set; } = "";
+        public bool IsNullConditional { get; set; }
     }
 
     public class ArrayAccessIR : ExpressionIR

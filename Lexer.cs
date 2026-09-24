@@ -353,6 +353,20 @@ public class Lexer
             return new Token(TokenType.Operator, currentChar.ToString(), startLine, startColumn);
         }
 
+        if (currentChar == '?' && _index + 1 < _source.Length && _source[_index + 1] == '?')
+        {
+            Advance();
+            Advance();
+            return new Token(TokenType.Operator, "??", _line, _column);
+        }
+
+        if (currentChar == '?' && _index + 1 < _source.Length && _source[_index + 1] == '.')
+        {
+            Advance();
+            Advance();
+            return new Token(TokenType.Operator, "?.", _line, _column);
+        }
+
         if (currentChar == ':' || currentChar == '?' || currentChar == ';')
         {
             Advance();

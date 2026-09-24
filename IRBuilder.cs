@@ -33,6 +33,7 @@ namespace ReMindAst
             foreach (var import in ast.Imports)
             {
                 program.Imports.Add(import.Name);
+                program.AliasClasses.AddRange(import.AliasClasses);
             }
 
             foreach (var ns in ast.Namespaces)
@@ -43,6 +44,7 @@ namespace ReMindAst
                     var classIR = new ClassIR
                     {
                         Name = cls.NameEn,
+                        BaseType = cls.BaseType,
                         Documentation = BuildDocumentation(cls.Javadoc, cls.NameJa)
                     };
 
@@ -131,8 +133,56 @@ namespace ReMindAst
                 },
                 BreakStatement => new BreakIR(),
                 ContinueStatement => new ContinueIR(),
+                ThrowStatement throwStatement => new ThrowIR { Value = BuildExpression(throwStatement.Value) },
+                SwitchStatement switchStatement => BuildSwitchStatement(switchStatement),
+                TryCatchStatement tryCatchStatement => BuildTryCatchStatement(tryCatchStatement),
                 _ => throw new System.NotSupportedException()
             };
+        }
+
+        private SwitchIR BuildSwitchStatement(SwitchStatement switchStatement)
+        {
+            var result = new SwitchIR { Expression = BuildExpression(switchStatement.Expression) };
+            foreach (var switchCase in switchStatement.Cases)
+            {
+                var caseIR = new SwitchCaseIR
+                {
+                    Value = switchCase.Value == null ? null : BuildExpression(switchCase.Value)
+                };
+                foreach (var statement in switchCase.Body)
+                {
+                    caseIR.Body.Statements.Add(BuildStatement(statement));
+                }
+                result.Cases.Add(caseIR);
+            }
+            return result;
+        }
+
+        private TryCatchIR BuildTryCatchStatement(TryCatchStatement tryCatchStatement)
+        {
+            var result = new TryCatchIR();
+            foreach (var statement in tryCatchStatement.TryBody)
+            {
+                result.TryBlock.Statements.Add(BuildStatement(statement));
+            }
+            foreach (var clause in tryCatchStatement.CatchClauses)
+            {
+                var clauseIR = new CatchClauseIR
+                {
+                    ExceptionType = clause.ExceptionType,
+                    VariableName = clause.VariableName
+                };
+                foreach (var statement in clause.Body)
+                {
+                    clauseIR.Body.Statements.Add(BuildStatement(statement));
+                }
+                result.CatchClauses.Add(clauseIR);
+            }
+            foreach (var statement in tryCatchStatement.FinallyBody)
+            {
+                result.FinallyBlock.Statements.Add(BuildStatement(statement));
+            }
+            return result;
         }
 
         private ForIR BuildForStatement(ForStatement forStatement)
@@ -161,9 +211,9 @@ namespace ReMindAst
                 MethodName = invocation.Target switch
                 {
                     IdentifierExpression identifier => identifier.NameEn,
-                    MemberAccessExpression memberAccess when memberAccess.Expression is IdentifierExpression target
-                        => $"{target.NameEn}.{memberAccess.MemberName}",
-                    MemberAccessExpression memberAccess => memberAccess.MemberName,
+                    MemberAccessExpression memberTarget when memberTarget.Expression is IdentifierExpression target
+                        => $"{target.NameEn}.{memberTarget.MemberName}",
+                    MemberAccessExpression memberTarget => memberTarget.MemberName,
                     _ => ""
                 }
             };
@@ -244,7 +294,8 @@ namespace ReMindAst
                 MemberAccessExpression memberAccess => new MemberAccessIR
                 {
                     Target = BuildExpression(memberAccess.Expression),
-                    MemberName = memberAccess.MemberName
+                    MemberName = memberAccess.MemberName,
+                    IsNullConditional = memberAccess.IsNullConditional
                 },
                 InvocationExpression invocation => BuildInvocationExpression(invocation),
                 BinaryExpression binary => new BinaryIR
@@ -264,8 +315,20 @@ namespace ReMindAst
                     Index = BuildExpression(elementAccess.IndexExpression)
                 },
                 ArrayLiteralExpression array => BuildArrayLiteral(array),
+                NewExpression newExpression => BuildNewExpression(newExpression),
+                NullLiteralExpression => new LiteralIR { Value = "null" },
                 _ => throw new System.NotSupportedException()
             };
+        }
+
+        private NewExpressionIR BuildNewExpression(NewExpression newExpression)
+        {
+            var result = new NewExpressionIR { TypeName = newExpression.TypeName };
+            foreach (var argument in newExpression.Arguments)
+            {
+                result.Arguments.Add(BuildExpression(argument));
+            }
+            return result;
         }
 
         private ArrayLiteralIR BuildArrayLiteral(ArrayLiteralExpression array)
@@ -283,14 +346,16 @@ namespace ReMindAst
 
         private CallExpressionIR BuildInvocationExpression(InvocationExpression invocation)
         {
+            var targetMember = invocation.Target as MemberAccessExpression;
             var call = new CallExpressionIR
             {
+                IsNullConditional = targetMember?.IsNullConditional == true,
                 MethodName = invocation.Target switch
                 {
                     IdentifierExpression identifier => identifier.NameEn,
-                    MemberAccessExpression memberAccess when memberAccess.Expression is IdentifierExpression target
-                        => $"{target.NameEn}.{memberAccess.MemberName}",
-                    MemberAccessExpression memberAccess => memberAccess.MemberName,
+                    MemberAccessExpression memberTarget when memberTarget.Expression is IdentifierExpression target
+                        => $"{target.NameEn}{(memberTarget.IsNullConditional ? "?." : ".")}{memberTarget.MemberName}",
+                    MemberAccessExpression memberTarget => memberTarget.MemberName,
                     _ => ""
                 }
             };

@@ -26,6 +26,7 @@ namespace ReMindAst
     {
         public string NameJa { get; set; } = "";
         public string NameEn { get; set; } = ""; // transpiledName
+        public string? BaseType { get; set; }
         public List<string> Modifiers { get; } = new();
         public JavadocComment? Javadoc { get; set; }
         public List<FieldDeclaration> Fields { get; } = new();
@@ -154,6 +155,11 @@ namespace ReMindAst
     {
     }
 
+    public class ThrowStatement : Statement
+    {
+        public Expression Value { get; set; } = null!;
+    }
+
     public class TryCatchStatement : Statement
     {
         public List<Statement> TryBody { get; } = new();
@@ -214,6 +220,7 @@ namespace ReMindAst
     {
         public Expression Expression { get; set; } = null!;
         public string MemberName { get; set; } = "";
+        public bool IsNullConditional { get; set; }
     }
 
     public class ElementAccessExpression : Expression
@@ -282,6 +289,7 @@ namespace ReMindAst
     {
         public string OriginalName { get; set; } = "";
         public string TranspiledName { get; set; } = "";
+        public string ReturnType { get; set; } = "object";
         public List<Parameter> Parameters { get; } = new();
     }
 

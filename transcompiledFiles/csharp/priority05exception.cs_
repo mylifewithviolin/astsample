@@ -1,0 +1,27 @@
+using System;
+
+namespace Priority05Exception
+{
+    /// <summary>プログラム型</summary>
+    public class Program
+    {
+        /// <summary>メイン</summary>
+        /// <param name="args">引数</param>
+        static void Main(string[] args)
+        {
+            try
+            {
+                throw new Exception("planned");
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("exception=caught");
+            }
+            finally
+            {
+                Console.WriteLine("finally=done");
+            }
+        }
+        
+    }
+}

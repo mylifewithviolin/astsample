@@ -1,0 +1,32 @@
+using System;
+
+namespace Priority06Instance
+{
+    /// <summary>点数型</summary>
+    public class Score
+    {
+        /// <summary>点数</summary>
+        public int score;
+        
+        /// <summary>加算する</summary>
+        public void Add()
+        {
+            score++;
+        }
+        
+    }
+    /// <summary>プログラム型</summary>
+    public class Program
+    {
+        /// <summary>メイン</summary>
+        /// <param name="args">引数</param>
+        static void Main(string[] args)
+        {
+            点数型 実行体 = new 点数型();
+            実行体.Add();
+            実行体.Add();
+            Console.WriteLine(実行体.score);
+        }
+        
+    }
+}

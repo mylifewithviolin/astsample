@@ -1,0 +1,18 @@
+using System;
+using System;
+
+namespace Priority04AliasMember
+{
+    /// <summary>プログラム型</summary>
+    public class Program
+    {
+        /// <summary>メイン</summary>
+        /// <param name="args">引数</param>
+        static void Main(string[] args)
+        {
+            string 結果 = String.ToUpper("alias-member-ok");
+            Console.WriteLine(結果);
+        }
+        
+    }
+}

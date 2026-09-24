@@ -1,0 +1,31 @@
+package priority05switch;
+
+import java.lang.System;
+
+/**
+ * プログラム型
+ */
+public class Program
+{
+    /**
+     * メイン
+     * @param args 引数
+     */
+    _static void main(String[] args)
+    {
+        int 値 = 2;
+        switch (値) {
+            case 1:
+                System.out.println("one");
+                break;
+            case 2:
+                System.out.println("two");
+                break;
+            default:
+                System.out.println("default");
+                break;
+        }
+    }
+    
+}
+

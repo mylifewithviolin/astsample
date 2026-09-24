@@ -87,6 +87,31 @@ namespace ReMindParser
                 _index++;
                 expression = new UnaryExpression { Operator = "-", Operand = ParsePostfixExpression() };
             }
+            else if (_tokens[_index].Type == TokenType.Identifier && _tokens[_index].Text == "new")
+            {
+                _index++;
+                var typeName = _tokens[_index].Type == TokenType.LParen ? "" : ParseIdentifier();
+                if (_index >= _tokens.Count || _tokens[_index].Type != TokenType.LParen)
+                {
+                    throw new InvalidOperationException("Expected '(' after new type.");
+                }
+                _index++;
+                var newExpression = new NewExpression { TypeName = typeName };
+                while (_index < _tokens.Count && _tokens[_index].Type != TokenType.RParen)
+                {
+                    newExpression.Arguments.Add(ParseExpression());
+                    if (_index < _tokens.Count && _tokens[_index].Type == TokenType.Comma)
+                    {
+                        _index++;
+                    }
+                }
+                if (_index >= _tokens.Count)
+                {
+                    throw new InvalidOperationException("Unterminated new expression.");
+                }
+                _index++;
+                expression = newExpression;
+            }
                 else if (_tokens[_index].Type == TokenType.Operator && _tokens[_index].Text == "!")
                 {
                     _index++;
@@ -107,6 +132,7 @@ namespace ReMindParser
                     {
                         "true" => new LiteralExpression { Value = true },
                         "false" => new LiteralExpression { Value = false },
+                        "null" => new NullLiteralExpression(),
                         _ => new IdentifierExpression { NameJa = nameJa, NameEn = ResolveTargetName(nameJa) }
                     };
             }
@@ -117,6 +143,16 @@ namespace ReMindParser
                 {
                     _index++;
                     expression = new MemberAccessExpression { Expression = expression, MemberName = ResolveTargetName(ParseIdentifier()) };
+                }
+                else if (_tokens[_index].Type == TokenType.Operator && _tokens[_index].Text == "?.")
+                {
+                    _index++;
+                    expression = new MemberAccessExpression
+                    {
+                        Expression = expression,
+                        MemberName = ResolveTargetName(ParseIdentifier()),
+                        IsNullConditional = true
+                    };
                 }
                 else if (_tokens[_index].Type == TokenType.LBracket)
                 {
@@ -178,6 +214,7 @@ namespace ReMindParser
             {
                     TokenType.Operator when token.Text == "||" => 1,
                     TokenType.Operator when token.Text == "&&" => 2,
+                    TokenType.Operator when token.Text == "??" => 2,
                     TokenType.Operator => 3,
                     TokenType.Plus or TokenType.Minus => 4,
                     TokenType.Asterisk or TokenType.Slash or TokenType.Percent => 5,
@@ -211,6 +248,11 @@ namespace ReMindParser
                     _index++;
                     return new ReturnStatement { Value = ParseExpression() };
                 }
+                if (MatchText("投げる"))
+                {
+                    _index++;
+                    return new ThrowStatement { Value = ParseExpression() };
+                }
                 var expr = ParseExpression();
 
                 if (TryConsumeReturnMarker(expr))
@@ -242,6 +284,94 @@ namespace ReMindParser
             if (_tokens[_index].Type == TokenType.Diamond)
             {
                 _index++;
+                if (MatchText("試す"))
+                {
+                    _index++;
+                    var tryCatch = new TryCatchStatement();
+                    while (_index < _tokens.Count && !IsExceptionBranch())
+                    {
+                        tryCatch.TryBody.Add(ParseStatement());
+                    }
+                    while (_index < _tokens.Count && IsExceptionBranch() && !IsBranchEnd())
+                    {
+                        _index++;
+                        if (MatchText("捉まえる"))
+                        {
+                            _index++;
+                            if (_index >= _tokens.Count || _tokens[_index].Type != TokenType.LParen)
+                            {
+                                throw new InvalidOperationException("Expected catch clause.");
+                            }
+                            _index++;
+                            var clause = new CatchClause
+                            {
+                                ExceptionType = TakeText("exception type"),
+                                VariableName = TakeText("exception variable")
+                            };
+                            if (_index >= _tokens.Count || _tokens[_index].Type != TokenType.RParen)
+                            {
+                                throw new InvalidOperationException("Expected ')' after catch clause.");
+                            }
+                            _index++;
+                            while (_index < _tokens.Count && !IsExceptionBranch())
+                            {
+                                clause.Body.Add(ParseStatement());
+                            }
+                            tryCatch.CatchClauses.Add(clause);
+                        }
+                        else if (MatchText("必ず最後に"))
+                        {
+                            _index++;
+                            while (_index < _tokens.Count && !IsBranchEnd())
+                            {
+                                tryCatch.FinallyBody.Add(ParseStatement());
+                            }
+                        }
+                        else
+                        {
+                            throw new InvalidOperationException("Unsupported exception branch.");
+                        }
+                    }
+                    if (IsBranchEnd())
+                    {
+                        _index += 2;
+                    }
+                    return tryCatch;
+                }
+
+                var switchExpression = ParseExpression();
+                if (MatchText("で分岐する"))
+                {
+                    _index++;
+                    var switchStatement = new SwitchStatement { Expression = switchExpression };
+                    while (_index < _tokens.Count && !IsBranchEnd())
+                    {
+                        if (_tokens[_index].Type != TokenType.Diamond)
+                        {
+                            throw new InvalidOperationException("Expected switch case.");
+                        }
+                        _index++;
+                        var switchCase = new SwitchCase();
+                        if (MatchText("既定"))
+                        {
+                            _index++;
+                        }
+                        else
+                        {
+                            switchCase.Value = ParseExpression();
+                        }
+                        while (_index < _tokens.Count && !IsSwitchCaseBoundary())
+                        {
+                            switchCase.Body.Add(ParseStatement());
+                        }
+                        switchStatement.Cases.Add(switchCase);
+                    }
+                    if (IsBranchEnd())
+                    {
+                        _index += 2;
+                    }
+                    return switchStatement;
+                }
                 var condition = ParseExpression();
 
                 if (_index >= _tokens.Count || _tokens[_index].Text != "の場合")
@@ -471,6 +601,9 @@ namespace ReMindParser
         private bool IsLoopEnd() => _index + 1 < _tokens.Count && _tokens[_index].Type == TokenType.Circle && _tokens[_index + 1].Text == "ここまで";
         private bool IsBranchEnd() => _index + 1 < _tokens.Count && _tokens[_index].Type == TokenType.Diamond && _tokens[_index + 1].Text == "ここまで";
         private bool IsBranchTerminator() => IsBranchEnd() || (_index + 1 < _tokens.Count && _tokens[_index].Type == TokenType.Diamond && _tokens[_index + 1].Text == "他に");
+        private bool IsExceptionBranch() => _index + 1 < _tokens.Count && _tokens[_index].Type == TokenType.Diamond &&
+            (_tokens[_index + 1].Text == "捉まえる" || _tokens[_index + 1].Text == "必ず最後に" || _tokens[_index + 1].Text == "ここまで");
+        private bool IsSwitchCaseBoundary() => _index + 1 < _tokens.Count && _tokens[_index].Type == TokenType.Diamond;
 
         private bool MatchText(string text)
         {
@@ -744,6 +877,11 @@ namespace ReMindParser
                 Javadoc = documentation
             };
             cls.Modifiers.Add("public");
+            if (MatchText(":"))
+            {
+                _index++;
+                cls.BaseType = TakeText("base class name");
+            }
 
             while (_index < _tokens.Count && _tokens[_index].Type != TokenType.DeclarationEnd)
             {
@@ -779,18 +917,24 @@ namespace ReMindParser
                             Modifiers = { "const" }
                         });
                     }
-                    else if (fieldTokens.Count >= 4)
+                    else if (fieldTokens.Count >= 3)
                     {
                         var fieldName = fieldTokens[^1];
-                        var fieldType = string.Concat(fieldTokens.GetRange(2, fieldTokens.Count - 3));
-                        cls.Fields.Add(new FieldDeclaration
+                        var typeIndex = 0;
+                        while (typeIndex < fieldTokens.Count - 1 && FieldModifierKeywords.Contains(fieldTokens[typeIndex]))
+                        {
+                            typeIndex++;
+                        }
+                        var fieldType = string.Concat(fieldTokens.GetRange(typeIndex, fieldTokens.Count - typeIndex - 1));
+                        var field = new FieldDeclaration
                         {
                             Type = fieldType,
                             NameJa = fieldName,
                             NameEn = ResolveTargetName(fieldName),
                             Javadoc = pendingDocumentation,
-                            Modifiers = { fieldTokens[0], fieldTokens[1] }
-                        });
+                        };
+                        field.Modifiers.AddRange(fieldTokens.Take(typeIndex));
+                        cls.Fields.Add(field);
                     }
                 }
                 else
@@ -827,69 +971,182 @@ namespace ReMindParser
             return new IdentifierExpression { NameJa = value, NameEn = value };
         }
 
-        private ImportDeclaration BuildSystemImport()
-        {
-            var isJavaImport = _tokens.Any(token =>
-                token.Text == "java.lang.System" ||
-                token.Text == "PrintStream" ||
-                token.Text == "println");
-            var import = new ImportDeclaration
-            {
-                Name = isJavaImport ? "java.lang.System" : "System"
-            };
-            var aliasClass = new AliasClass
-            {
-                OriginalName = "コンソール",
-                TranspiledName = isJavaImport ? "System.out" : "Console"
-            };
-            aliasClass.Members.Add(new AliasMember
-            {
-                OriginalName = "一行表示する",
-                TranspiledName = isJavaImport ? "println" : "WriteLine"
-            });
-            import.AliasClasses.Add(aliasClass);
-            return import;
-        }
-
         private CompilationUnit ParseTokenCompilationUnit()
         {
             var compilationUnit = new CompilationUnit();
-            while (_index < _tokens.Count &&
-                   _tokens[_index].Type != TokenType.DeclarationStart &&
-                   _tokens[_index].Type != TokenType.DocumentComment)
+            NamespaceDeclaration? currentNamespace = null;
+            JavadocComment? pendingDocumentation = null;
+
+            while (_index < _tokens.Count && _tokens[_index].Type != TokenType.Eof)
             {
+                if (_tokens[_index].Type == TokenType.DocumentComment)
+                {
+                    pendingDocumentation = TakeDocumentation();
+                    continue;
+                }
+
+                if (_tokens[_index].Type == TokenType.DeclarationStart &&
+                    _index + 1 < _tokens.Count && _tokens[_index + 1].Text == "名前空間")
+                {
+                    _index += 2;
+                    currentNamespace = new NamespaceDeclaration { Name = TakeText("namespace name") };
+                    compilationUnit.Namespaces.Add(currentNamespace);
+                    pendingDocumentation = null;
+                    continue;
+                }
+
+                if (_tokens[_index].Type == TokenType.DeclarationStart &&
+                    _index + 2 < _tokens.Count &&
+                    (_tokens[_index + 2].Text == "クラス" || _tokens[_index + 2].Text == "class"))
+                {
+                    if (currentNamespace == null)
+                    {
+                        throw new InvalidOperationException("Class declaration requires a namespace.");
+                    }
+
+                    _index++;
+                    currentNamespace.Classes.Add(ParseTokenClass(pendingDocumentation));
+                    pendingDocumentation = null;
+                    continue;
+                }
+
+                if (_tokens[_index].Type == TokenType.ImportStart)
+                {
+                    compilationUnit.Imports.Add(ParseImportDeclaration());
+                    continue;
+                }
+
+                if (_tokens[_index].Type == TokenType.AliasStart)
+                {
+                    var import = compilationUnit.Imports.Count > 0
+                        ? compilationUnit.Imports[^1]
+                        : new ImportDeclaration();
+                    if (compilationUnit.Imports.Count == 0)
+                    {
+                        compilationUnit.Imports.Add(import);
+                    }
+                    import.AliasClasses.Add(ParseAliasClass());
+                    continue;
+                }
+
                 _index++;
             }
 
-            if (_index >= _tokens.Count)
+            return compilationUnit;
+        }
+
+        private ImportDeclaration ParseImportDeclaration()
+        {
+            var line = _tokens[_index].Line;
+            _index++;
+            var parts = new List<string>();
+            while (_index < _tokens.Count && _tokens[_index].Line == line)
             {
-                return compilationUnit;
+                if (_tokens[_index].Text != "インポートする")
+                {
+                    parts.Add(_tokens[_index].Text);
+                }
+                _index++;
             }
 
+            return new ImportDeclaration { Name = string.Concat(parts) };
+        }
+
+        private AliasClass ParseAliasClass()
+        {
+            var line = _tokens[_index].Line;
             _index++;
-            TakeText("namespace keyword");
-            var ns = new NamespaceDeclaration
+            var header = new List<string>();
+            while (_index < _tokens.Count && _tokens[_index].Line == line)
             {
-                Name = TakeText("namespace name")
+                header.Add(_tokens[_index++].Text);
+            }
+
+            var classKeywordIndex = header.FindIndex(text => text == "class" || text == "クラス");
+            if (classKeywordIndex < 0 || classKeywordIndex + 2 >= header.Count)
+            {
+                throw new InvalidOperationException("Invalid AliasClass declaration.");
+            }
+
+            var aliasClass = new AliasClass
+            {
+                OriginalName = header[classKeywordIndex + 1],
+                TranspiledName = string.Join("", header.Skip(classKeywordIndex + 2))
             };
 
-            while (_index < _tokens.Count &&
-                   _tokens[_index].Type != TokenType.DeclarationStart &&
-                   _tokens[_index].Type != TokenType.DocumentComment)
+            while (_index < _tokens.Count && _tokens[_index].Type != TokenType.AliasEnd)
+            {
+                if (_tokens[_index].Type == TokenType.AliasStart)
+                {
+                    aliasClass.Members.Add(ParseAliasMember());
+                }
+                else
+                {
+                    _index++;
+                }
+            }
+
+            if (_index < _tokens.Count)
             {
                 _index++;
             }
 
-            var classDocumentation = TakeDocumentation();
-            if (_index < _tokens.Count && _tokens[_index].Type == TokenType.DeclarationStart)
+            return aliasClass;
+        }
+
+        private AliasMember ParseAliasMember()
+        {
+            var line = _tokens[_index].Line;
+            _index++;
+            var header = new List<string>();
+            while (_index < _tokens.Count && _tokens[_index].Line == line)
             {
-                _index++;
-                ns.Classes.Add(ParseTokenClass(classDocumentation));
+                header.Add(_tokens[_index++].Text);
             }
 
-            compilationUnit.Namespaces.Add(ns);
-            compilationUnit.Imports.Add(BuildSystemImport());
-            return compilationUnit;
+            var lParen = header.IndexOf("(");
+            if (lParen < 1)
+            {
+                throw new InvalidOperationException("Invalid AliasMember declaration.");
+            }
+
+            var member = new AliasMember { OriginalName = header[lParen - 1] };
+            if (lParen >= 2)
+            {
+                member.ReturnType = header[lParen - 2];
+            }
+            while (_index < _tokens.Count && _tokens[_index].Type != TokenType.AliasEnd)
+            {
+                if (_tokens[_index].Type == TokenType.ImportStart)
+                {
+                    var targetLine = _tokens[_index].Line;
+                    _index++;
+                    while (_index < _tokens.Count && _tokens[_index].Line == targetLine)
+                    {
+                        if (_tokens[_index].Type == TokenType.Identifier &&
+                            _tokens[_index].Text != "インポートする")
+                        {
+                            member.TranspiledName = _tokens[_index].Text;
+                            break;
+                        }
+                        _index++;
+                    }
+                    while (_index < _tokens.Count && _tokens[_index].Line == targetLine)
+                    {
+                        _index++;
+                    }
+                    continue;
+                }
+
+                _index++;
+            }
+
+            if (_index < _tokens.Count)
+            {
+                _index++;
+            }
+
+            return member;
         }
 
         public CompilationUnit ParseCompilationUnit()
