@@ -1,0 +1,65 @@
+▽名前空間 Priority07Acceptance
+    /** Score */
+    ▽public クラス 点数型
+        ・public int 点数
+        ▽public void 加算する()
+            □点数++
+        △
+    △
+
+    /** Program */
+    ▽public クラス プログラム型
+        /** Main
+        * @param 引数 args
+        */
+        ▽static void メイン(string[] 引数)
+            ・定数int 制限値 = 3
+            ・int 値 = 0
+            ◇値 < 0 の場合
+                □コンソール.一行表示する("branch=negative")
+            ◇他に 値 == 0 の場合
+                □コンソール.一行表示する("branch=zero")
+            ◇他に
+                □コンソール.一行表示する("branch=positive")
+            ◇ここまで
+            〇繰り返す
+                □値++
+                ◇値 == 2 の場合
+                    □ループ先頭へ
+                ◇ここまで
+                □コンソール.一行表示する(値)
+                ◇値 == 制限値 の場合
+                    □脱出する
+                ◇ここまで
+            〇ここまで
+            ◇2 で分岐する
+            ◇2
+                □コンソール.一行表示する("switch=two")
+                □脱出する
+            ◇既定
+                □コンソール.一行表示する("switch=default")
+                □脱出する
+            ◇ここまで
+            ◇試す
+                □投げる new Exception("planned")
+            ◇捉まえる(Exception e)
+                □コンソール.一行表示する("exception=caught")
+            ◇必ず最後に
+                □コンソール.一行表示する("finally=done")
+            ◇ここまで
+            ・点数型 実行体 = new()
+            □実行体.加算する()
+            □実行体.加算する()
+            □コンソール.一行表示する(実行体.点数)
+            ・string? 名前 = null
+            ・string 結果 = 名前 ?? "fallback=none"
+            □コンソール.一行表示する(結果)
+        △
+    △
+△
+■インポートする java.lang.System
+▼public class コンソール PrintStream System.out
+    ▼public static 一行表示する(string value)
+        ■println (String value)
+    ▲
+▲

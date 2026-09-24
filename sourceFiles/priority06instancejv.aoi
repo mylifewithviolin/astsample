@@ -1,0 +1,30 @@
+▽名前空間 Priority06Instance
+    /** Score */
+    ▽public クラス 点数型
+        /** score */
+        ・public int 点数
+        /** Add */
+        ▽public void 加算する()
+            □点数++
+        △
+    △
+
+    /** Program */
+    ▽public クラス プログラム型
+        /** Main
+        * @param 引数 args
+        */
+        ▽static void メイン(string[] 引数)
+            ・点数型 実行体 = new()
+            □実行体.加算する()
+            □実行体.加算する()
+            □コンソール.一行表示する(実行体.点数)
+        △
+    △
+△
+■インポートする java.lang.System
+▼public class コンソール PrintStream System.out
+    ▼public static 一行表示する(string value)
+        ■println (String value)
+    ▲
+▲

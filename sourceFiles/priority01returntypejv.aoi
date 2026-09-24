@@ -1,0 +1,22 @@
+▽名前空間 Priority01ReturnType
+    /** Program */
+    ▽public クラス プログラム型
+        /** Main
+        * @param 引数 args
+        */
+        ▽static void メイン(string[] 引数)
+            ・int 結果 = 数値を返す()
+        △
+
+        /** ReturnNumber */
+        ▽static int 数値を返す()
+            □"bad"を 返す
+        △
+    △
+△
+■インポートする java.lang.System
+▼public class コンソール PrintStream System.out
+    ▼public static 一行表示する(string value)
+        ■println (String value)
+    ▲
+▲

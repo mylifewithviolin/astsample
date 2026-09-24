@@ -1,0 +1,21 @@
+▽名前空間 Priority01ConditionType
+    /** Program */
+    ▽public クラス プログラム型
+        /** Main
+        * @param 引数 args
+        */
+        ▽static void メイン(string[] 引数)
+            /** count */
+            ・int 個数 = 1
+            ◇個数 の場合
+                □コンソール.一行表示する("bad")
+            ◇ここまで
+        △
+    △
+△
+■インポートする java.lang.System
+▼public class コンソール PrintStream System.out
+    ▼public static 一行表示する(string value)
+        ■println (String value)
+    ▲
+▲

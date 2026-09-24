@@ -1,0 +1,28 @@
+▽名前空間 Priority05Switch
+    /** Program */
+    ▽public クラス プログラム型
+        /** Main
+        * @param 引数 args
+        */
+        ▽static void メイン(string[] 引数)
+            ・int 値 = 2
+            ◇値 で分岐する
+            ◇1
+                □コンソール.一行表示する("one")
+                □脱出する
+            ◇2
+                □コンソール.一行表示する("two")
+                □脱出する
+            ◇既定
+                □コンソール.一行表示する("default")
+                □脱出する
+            ◇ここまで
+        △
+    △
+△
+■インポートする java.lang.System
+▼public class コンソール PrintStream System.out
+    ▼public static 一行表示する(string value)
+        ■println (String value)
+    ▲
+▲

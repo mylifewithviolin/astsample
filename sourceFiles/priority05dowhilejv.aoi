@@ -1,0 +1,21 @@
+▽名前空間 Priority05DoWhile
+    /** Program */
+    ▽public クラス プログラム型
+        /** Main
+        * @param 引数 args
+        */
+        ▽static void メイン(string[] 引数)
+            ・int 値 = 1
+            〇ここから
+                □コンソール.一行表示する("do-once")
+                □値++
+            〇値 < 1 の間は繰り返す
+        △
+    △
+△
+■インポートする java.lang.System
+▼public class コンソール PrintStream System.out
+    ▼public static 一行表示する(string value)
+        ■println (String value)
+    ▲
+▲

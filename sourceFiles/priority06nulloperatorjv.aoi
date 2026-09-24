@@ -1,0 +1,20 @@
+▽名前空間 Priority06NullOperator
+    /** Program */
+    ▽public クラス プログラム型
+        /** Main
+        * @param 引数 args
+        */
+        ▽static void メイン(string[] 引数)
+            ・string? 名前 = null
+            ・string? 候補 = 名前?.toString()
+            ・string 結果 = 候補 ?? "none"
+            □コンソール.一行表示する(結果)
+        △
+    △
+△
+■インポートする java.lang.System
+▼public class コンソール PrintStream System.out
+    ▼public static 一行表示する(string value)
+        ■println (String value)
+    ▲
+▲

@@ -1,0 +1,26 @@
+▽名前空間 Priority01CallType
+    /** Program */
+    ▽public クラス プログラム型
+        /** Main
+        * @param 引数 args
+        */
+        ▽static void メイン(string[] 引数)
+            /** result */
+            ・int 結果 = 二つを加算する("bad", 1)
+        △
+
+        /** Add
+        * @param 左 left
+        * @param 右 right
+        */
+        ▽static int 二つを加算する(int 左, int 右)
+            □左を 返す
+        △
+    △
+△
+■インポートする java.lang.System
+▼public class コンソール PrintStream System.out
+    ▼public static 一行表示する(string value)
+        ■println (String value)
+    ▲
+▲

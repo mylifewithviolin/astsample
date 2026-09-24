@@ -1,0 +1,24 @@
+▽名前空間 Priority03InfiniteLoop
+    /** Program */
+    ▽public クラス プログラム型
+        /** Main
+        * @param 引数 args
+        */
+        ▽static void メイン(string[] 引数)
+            ・int 回数 = 0
+            〇繰り返す
+                □回数++
+                ◇回数 == 3 の場合
+                    □脱出する
+                ◇ここまで
+            〇ここまで
+            □コンソール.一行表示する(回数)
+        △
+    △
+△
+■インポートする java.lang.System
+▼public class コンソール PrintStream System.out
+    ▼public static 一行表示する(string value)
+        ■println (String value)
+    ▲
+▲

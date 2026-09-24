@@ -1,0 +1,26 @@
+▽名前空間 Priority06Inheritance
+    /** BaseScore */
+    ▽public クラス 基底点数型
+        /** GetBase */
+        ▽public int 基底値を得る()
+            □1を 返す
+        △
+    △
+
+    /** Program */
+    ▽public クラス プログラム型 : 基底点数型
+        /** Main
+        * @param 引数 args
+        */
+        ▽static void メイン(string[] 引数)
+            ・プログラム型 実行体 = new()
+            □コンソール.一行表示する(実行体.基底値を得る())
+        △
+    △
+△
+■インポートする java.lang.System
+▼public class コンソール PrintStream System.out
+    ▼public static 一行表示する(string value)
+        ■println (String value)
+    ▲
+▲

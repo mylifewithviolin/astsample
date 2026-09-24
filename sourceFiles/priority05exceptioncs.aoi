@@ -1,0 +1,23 @@
+▽名前空間 Priority05Exception
+    /** Program */
+    ▽public クラス プログラム型
+        /** Main
+        * @param 引数 args
+        */
+        ▽static void メイン(string[] 引数)
+            ◇試す
+                □投げる new Exception("planned")
+            ◇捉まえる(Exception e)
+                □コンソール.一行表示する("exception=caught")
+            ◇必ず最後に
+                □コンソール.一行表示する("finally=done")
+            ◇ここまで
+        △
+    △
+△
+■インポートする System
+▼public static class コンソール Console
+    ▼public static 一行表示する(string? value)
+        ■WriteLine (string? value)
+    ▲
+▲

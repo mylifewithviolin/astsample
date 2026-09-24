@@ -1,0 +1,22 @@
+▽名前空間 Priority03ReturnKeyword
+    /** Program */
+    ▽public クラス プログラム型
+        /** Main
+        * @param 引数 args
+        */
+        ▽static void メイン(string[] 引数)
+            ・string 結果 = 結果を返す()
+            □コンソール.一行表示する(結果)
+        △
+        /** ReturnText */
+        ▽static string 結果を返す()
+            □return "return-keyword-ok"
+        △
+    △
+△
+■インポートする java.lang.System
+▼public class コンソール PrintStream System.out
+    ▼public static 一行表示する(string value)
+        ■println (String value)
+    ▲
+▲

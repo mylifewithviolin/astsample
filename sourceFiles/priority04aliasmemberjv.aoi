@@ -1,0 +1,24 @@
+▽名前空間 Priority04AliasMember
+    /** Program */
+    ▽public クラス プログラム型
+        /** Main
+        * @param 引数 args
+        */
+        ▽static void メイン(string[] 引数)
+            ・string 結果 = 文字列操作.大文字にする("alias-member-ok")
+            □コンソール.一行表示する(結果)
+        △
+    △
+△
+■インポートする java.lang.System
+▼public class 文字列操作 String
+    ▼public static string 大文字にする(string value)
+        ■toUpperCase (String value)
+    ▲
+▲
+■インポートする java.lang.System
+▼public class コンソール PrintStream System.out
+    ▼public static 一行表示する(string value)
+        ■println (String value)
+    ▲
+▲

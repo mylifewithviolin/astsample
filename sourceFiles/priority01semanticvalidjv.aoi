@@ -1,0 +1,37 @@
+▽名前空間 Priority01SemanticValid
+    /** Program */
+    ▽public クラス プログラム型
+        /** Main
+        * @param 引数 args
+        */
+        ▽static void メイン(string[] 引数)
+            /** count */
+            ・int 個数 = 3
+            /** result */
+            ・int 結果 = 値を確認する(個数)
+            /** valid */
+            ・bool 妥当 = 結果 == 3
+            /** message */
+            ・string メッセージ = "semantic-ok"
+            ◇妥当 の場合
+                □コンソール.一行表示する(メッセージ)
+            ◇他に
+                □コンソール.一行表示する("semantic-ng")
+            ◇ここまで
+        △
+
+        /** VerifyValue
+        * @param 値 value
+        */
+        ▽static int 値を確認する(int 値)
+            □値を 返す
+        △
+    △
+△
+
+■インポートする java.lang.System
+▼public class コンソール PrintStream System.out
+    ▼public static 一行表示する(string value)
+        ■println (String value)
+    ▲
+▲

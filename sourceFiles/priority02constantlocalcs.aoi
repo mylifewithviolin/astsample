@@ -1,0 +1,22 @@
+▽名前空間 Priority02ConstantLocal
+    /** Program */
+    ▽public クラス プログラム型
+        /** Main
+        * @param 引数 args
+        */
+        ▽static void メイン(string[] 引数)
+            /** limit */
+            ・定数int 制限値 = 3
+            /** label */
+            ・定数string 固定文 = "constant-ok"
+            □コンソール.一行表示する(制限値)
+            □コンソール.一行表示する(固定文)
+        △
+    △
+△
+■インポートする System
+▼public static class コンソール Console
+    ▼public static 一行表示する(string? value)
+        ■WriteLine (string? value)
+    ▲
+▲

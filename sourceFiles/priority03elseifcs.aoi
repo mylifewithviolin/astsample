@@ -1,0 +1,24 @@
+▽名前空間 Priority03ElseIf
+    /** Program */
+    ▽public クラス プログラム型
+        /** Main
+        * @param 引数 args
+        */
+        ▽static void メイン(string[] 引数)
+            ・int 値 = 0
+            ◇値 < 0 の場合
+                □コンソール.一行表示する("negative")
+            ◇他に 値 == 0 の場合
+                □コンソール.一行表示する("zero")
+            ◇他に
+                □コンソール.一行表示する("positive")
+            ◇ここまで
+        △
+    △
+△
+■インポートする System
+▼public static class コンソール Console
+    ▼public static 一行表示する(string? value)
+        ■WriteLine (string? value)
+    ▲
+▲

@@ -1,0 +1,17 @@
+▽名前空間 Priority04AliasCustom
+    /** Program */
+    ▽public クラス プログラム型
+        /** Main
+        * @param 引数 args
+        */
+        ▽static void メイン(string[] 引数)
+            □表示器.表示する("alias-custom-ok")
+        △
+    △
+△
+■インポートする java.lang.System
+▼public class 表示器 PrintStream System.out
+    ▼public static 表示する(string value)
+        ■println (String value)
+    ▲
+▲

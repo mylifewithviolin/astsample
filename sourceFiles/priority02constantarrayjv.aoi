@@ -1,0 +1,19 @@
+▽名前空間 Priority02ConstantArray
+    /** Program */
+    ▽public クラス プログラム型
+        /** Main
+        * @param 引数 args
+        */
+        ▽static void メイン(string[] 引数)
+            /** values */
+            ・定数int[] 値一覧 = 3,5,8
+            □コンソール.一行表示する(値一覧[1])
+        △
+    △
+△
+■インポートする java.lang.System
+▼public class コンソール PrintStream System.out
+    ▼public static 一行表示する(string value)
+        ■println (String value)
+    ▲
+▲

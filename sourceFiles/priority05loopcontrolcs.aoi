@@ -1,0 +1,27 @@
+▽名前空間 Priority05LoopControl
+    /** Program */
+    ▽public クラス プログラム型
+        /** Main
+        * @param 引数 args
+        */
+        ▽static void メイン(string[] 引数)
+            ・int 値 = 0
+            〇値 < 5 の間は繰り返す
+                □値++
+                ◇値 == 2 の場合
+                    □ループ先頭へ
+                ◇ここまで
+                ◇値 == 4 の場合
+                    □脱出する
+                ◇ここまで
+                □コンソール.一行表示する(値)
+            〇ここまで
+        △
+    △
+△
+■インポートする System
+▼public static class コンソール Console
+    ▼public static 一行表示する(string? value)
+        ■WriteLine (string? value)
+    ▲
+▲

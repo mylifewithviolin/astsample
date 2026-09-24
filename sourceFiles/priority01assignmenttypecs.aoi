@@ -1,0 +1,19 @@
+▽名前空間 Priority01AssignmentType
+    /** Program */
+    ▽public クラス プログラム型
+        /** Main
+        * @param 引数 args
+        */
+        ▽static void メイン(string[] 引数)
+            /** count */
+            ・int 個数 = 0
+            □個数 = "bad"
+        △
+    △
+△
+■インポートする System
+▼public static class コンソール Console
+    ▼public static 一行表示する(string? value)
+        ■WriteLine (string? value)
+    ▲
+▲
