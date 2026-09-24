@@ -42,29 +42,30 @@ class Program
       return;
     }
 
-    var lexer = new Lexer(source);
-    var tokens = lexer.Tokenize();
-    var parser = new Parser(tokens);
-    var ast = parser.ParseCompilationUnit();
-    var resolver = new SemanticResolver(ast);
-    resolver.Resolve();
-    var programIR = new IRBuilder().Build(ast);
-
     string output;
-    switch (targetExtension.ToLowerInvariant())
+    try
     {
-      case ".cs_":
-        output = new CSharpCodeGenerator().Generate(programIR);
-        break;
-      case ".java_":
-        output = new JavaCodeGenerator().Generate(programIR);
-        break;
-      case ".vb":
-        output = new VbNetCodeGenerator().Generate(programIR);
-        break;
-      default:
-        Console.WriteLine(Messages.E00004);
-        return;
+      var lexer = new Lexer(source);
+      var tokens = lexer.Tokenize();
+      var parser = new Parser(tokens);
+      var ast = parser.ParseCompilationUnit();
+      var resolver = new SemanticResolver(ast);
+      resolver.Resolve();
+      var programIR = new IRBuilder().Build(ast);
+
+      output = targetExtension.ToLowerInvariant() switch
+      {
+        ".cs_" => new CSharpCodeGenerator().Generate(programIR),
+        ".java_" => new JavaCodeGenerator().Generate(programIR),
+        ".vb" => new VbNetCodeGenerator().Generate(programIR),
+        _ => throw new InvalidOperationException(Messages.E00004)
+      };
+    }
+    catch (Exception ex)
+    {
+      Console.Error.WriteLine($"変換エラー: {ex.Message}");
+      Environment.ExitCode = 1;
+      return;
     }
 
     try

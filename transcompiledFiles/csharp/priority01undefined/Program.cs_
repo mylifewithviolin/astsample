@@ -1,0 +1,16 @@
+using System;
+
+namespace Priority01Undefined
+{
+    /// <summary>プログラム型</summary>
+    public class Program
+    {
+        /// <summary>メイン</summary>
+        /// <param name="args">引数</param>
+        static void Main(string[] args)
+        {
+            Console.WriteLine(未宣言値);
+        }
+        
+    }
+}

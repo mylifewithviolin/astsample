@@ -13,6 +13,7 @@ namespace ReMindParser
         private CompilationUnit _ast = null!;
         private SymbolTable _symbolTable = null!;
         private Scope _currentScope = null!;
+        private readonly Dictionary<string, MethodDeclaration> _methods = new(StringComparer.Ordinal);
 
         /// <summary>
         /// コンストラクタ
@@ -34,25 +35,39 @@ namespace ReMindParser
             {
                 foreach (var classDeclaration in namespaceDeclaration.Classes)
                 {
+                    _methods.Clear();
                     foreach (var method in classDeclaration.Methods)
                     {
-                        ResolveMethod(method);
+                        _methods[method.NameJa] = method;
+                        _methods[method.NameEn] = method;
+                    }
+
+                    foreach (var method in classDeclaration.Methods)
+                    {
+                        ResolveMethod(classDeclaration, method);
                     }
                 }
             }
         }
 
-        private void ResolveMethod(MethodDeclaration method)
+        private void ResolveMethod(ClassDeclaration classDeclaration, MethodDeclaration method)
         {
-            var names = new Dictionary<string, string>(StringComparer.Ordinal);
+            var symbols = new Dictionary<string, Symbol>(StringComparer.Ordinal);
+            foreach (var field in classDeclaration.Fields)
+            {
+                var kind = field.Modifiers.Contains("const", StringComparer.Ordinal)
+                    ? SymbolKind.Constant
+                    : SymbolKind.Field;
+                symbols[field.NameJa] = new Symbol(field.NameJa, field.Type, kind);
+            }
             foreach (var parameter in method.Parameters)
             {
-                names[parameter.NameJa] = parameter.NameEn;
+                symbols[parameter.NameJa] = new Symbol(parameter.NameJa, parameter.Type, SymbolKind.Parameter);
             }
-            ResolveStatements(method.Body, names);
+            ResolveStatements(method.Body, symbols, method.ReturnType);
         }
 
-        private void ResolveStatements(IEnumerable<Statement> statements, Dictionary<string, string> names)
+        private void ResolveStatements(IEnumerable<Statement> statements, Dictionary<string, Symbol> symbols, string returnType)
         {
             foreach (var statement in statements)
             {
@@ -61,45 +76,229 @@ namespace ReMindParser
                     case LocalVariableDeclaration localVariable:
                         if (localVariable.Initializer != null)
                         {
-                            ResolveExpressionNames(localVariable.Initializer, names);
+                            ValidateExpression(localVariable.Initializer, symbols);
+                            RequireAssignable(localVariable.Type, InferType(localVariable.Initializer, symbols), localVariable.NameJa);
                         }
-                        names[localVariable.NameJa] = localVariable.NameEn;
+                        symbols[localVariable.NameJa] = new Symbol(localVariable.NameJa, localVariable.Type, SymbolKind.Variable);
                         break;
                     case AssignmentStatement assignment:
-                        ResolveExpressionNames(assignment.Left, names);
-                        ResolveExpressionNames(assignment.Right, names);
+                        ValidateAssignment(assignment, symbols);
                         break;
                     case ExpressionStatement expressionStatement:
-                        ResolveExpressionNames(expressionStatement.Expression, names);
+                        ValidateExpression(expressionStatement.Expression, symbols);
                         break;
                     case IfStatement ifStatement:
-                        ResolveExpressionNames(ifStatement.Condition, names);
-                        ResolveStatements(ifStatement.ThenBody, new Dictionary<string, string>(names, StringComparer.Ordinal));
-                        ResolveStatements(ifStatement.ElseBody, new Dictionary<string, string>(names, StringComparer.Ordinal));
+                        RequireBoolean(ifStatement.Condition, symbols, "If");
+                        ResolveStatements(ifStatement.ThenBody, new Dictionary<string, Symbol>(symbols, StringComparer.Ordinal), returnType);
+                        ResolveStatements(ifStatement.ElseBody, new Dictionary<string, Symbol>(symbols, StringComparer.Ordinal), returnType);
                         break;
                     case WhileStatement whileStatement:
-                        ResolveExpressionNames(whileStatement.Condition, names);
-                        ResolveStatements(whileStatement.Body, new Dictionary<string, string>(names, StringComparer.Ordinal));
+                        RequireBoolean(whileStatement.Condition, symbols, "While");
+                        ResolveStatements(whileStatement.Body, new Dictionary<string, Symbol>(symbols, StringComparer.Ordinal), returnType);
                         break;
                     case ForStatement forStatement:
-                        var loopNames = new Dictionary<string, string>(names, StringComparer.Ordinal);
+                        var loopSymbols = new Dictionary<string, Symbol>(symbols, StringComparer.Ordinal);
                         if (forStatement.Initializer != null)
                         {
-                            ResolveExpressionNames(forStatement.Initializer.Initializer!, loopNames);
-                            loopNames[forStatement.Initializer.NameJa] = forStatement.Initializer.NameEn;
+                            ValidateExpression(forStatement.Initializer.Initializer!, loopSymbols);
+                            RequireAssignable(forStatement.Initializer.Type, InferType(forStatement.Initializer.Initializer!, loopSymbols), forStatement.Initializer.NameJa);
+                            loopSymbols[forStatement.Initializer.NameJa] = new Symbol(forStatement.Initializer.NameJa, forStatement.Initializer.Type, SymbolKind.Variable);
                         }
-                        if (forStatement.Condition != null) ResolveExpressionNames(forStatement.Condition, loopNames);
-                        if (forStatement.Iterator != null) ResolveExpressionNames(forStatement.Iterator, loopNames);
-                        ResolveStatements(forStatement.Body, loopNames);
+                        if (forStatement.Condition != null) RequireBoolean(forStatement.Condition, loopSymbols, "For");
+                        if (forStatement.Iterator != null) ValidateExpression(forStatement.Iterator, loopSymbols);
+                        ResolveStatements(forStatement.Body, loopSymbols, returnType);
                         break;
                     case ReturnStatement returnStatement:
                         if (returnStatement.Value != null)
                         {
-                            ResolveExpressionNames(returnStatement.Value, names);
+                            ValidateExpression(returnStatement.Value, symbols);
+                            RequireAssignable(returnType, InferType(returnStatement.Value, symbols), "return");
+                        }
+                        else if (!string.Equals(returnType, "void", StringComparison.Ordinal))
+                        {
+                            throw new InvalidOperationException($"Return type mismatch: method returns '{returnType}' but no value was returned.");
                         }
                         break;
                 }
             }
+        }
+
+        private void ValidateAssignment(AssignmentStatement assignment, Dictionary<string, Symbol> symbols)
+        {
+            if (assignment.Left is not IdentifierExpression identifier || !symbols.TryGetValue(identifier.NameJa, out var target))
+            {
+                throw new InvalidOperationException($"Undefined identifier '{GetExpressionName(assignment.Left)}'.");
+            }
+            if (target.Kind == SymbolKind.Constant)
+            {
+                throw new InvalidOperationException($"Cannot reassign constant '{identifier.NameJa}'.");
+            }
+
+            ValidateExpression(assignment.Right, symbols);
+            RequireAssignable(target.Type, InferType(assignment.Right, symbols), identifier.NameJa);
+            identifier.NameEn = ResolveTargetName(identifier.NameJa, identifier.NameEn);
+        }
+
+        private void RequireBoolean(Expression expression, Dictionary<string, Symbol> symbols, string context)
+        {
+            ValidateExpression(expression, symbols);
+            var actualType = InferType(expression, symbols);
+            if (!string.Equals(actualType, "bool", StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException($"{context} condition must be 'bool', but was '{actualType}'.");
+            }
+        }
+
+        private void ValidateExpression(Expression expression, Dictionary<string, Symbol> symbols)
+        {
+            switch (expression)
+            {
+                case IdentifierExpression identifier:
+                    if (!symbols.TryGetValue(identifier.NameJa, out var symbol))
+                    {
+                        throw new InvalidOperationException($"Undefined identifier '{identifier.NameJa}'.");
+                    }
+                    identifier.NameEn = ResolveTargetName(identifier.NameJa, identifier.NameEn);
+                    break;
+                case BinaryExpression binary:
+                    ValidateExpression(binary.Left, symbols);
+                    ValidateExpression(binary.Right, symbols);
+                    ValidateBinaryExpression(binary, symbols);
+                    break;
+                case UnaryExpression unary:
+                    ValidateExpression(unary.Operand, symbols);
+                    if (unary.Operator == "!" && !string.Equals(InferType(unary.Operand, symbols), "bool", StringComparison.Ordinal))
+                    {
+                        throw new InvalidOperationException("Operator '!' requires a 'bool' operand.");
+                    }
+                    break;
+                case InvocationExpression invocation:
+                    ValidateInvocation(invocation, symbols);
+                    break;
+                case MemberAccessExpression memberAccess:
+                    ValidateMemberAccess(memberAccess, symbols);
+                    break;
+                case ElementAccessExpression elementAccess:
+                    ValidateExpression(elementAccess.ArrayExpression, symbols);
+                    ValidateExpression(elementAccess.IndexExpression, symbols);
+                    RequireAssignable("int", InferType(elementAccess.IndexExpression, symbols), "array index");
+                    break;
+                case ArrayLiteralExpression arrayLiteral:
+                    foreach (var element in arrayLiteral.Elements)
+                    {
+                        ValidateExpression(element, symbols);
+                    }
+                    break;
+            }
+        }
+
+        private void ValidateBinaryExpression(BinaryExpression binary, Dictionary<string, Symbol> symbols)
+        {
+            var leftType = InferType(binary.Left, symbols);
+            var rightType = InferType(binary.Right, symbols);
+            if (binary.Operator is "&&" or "||")
+            {
+                if (leftType != "bool" || rightType != "bool")
+                {
+                    throw new InvalidOperationException($"Operator '{binary.Operator}' requires two 'bool' operands.");
+                }
+                return;
+            }
+
+            if (binary.Operator is "==" or "!=" or "<" or ">" or "<=" or ">=")
+            {
+                if (leftType != rightType)
+                {
+                    throw new InvalidOperationException($"Operator '{binary.Operator}' cannot compare '{leftType}' and '{rightType}'.");
+                }
+                return;
+            }
+
+            if (leftType != "int" || rightType != "int")
+            {
+                throw new InvalidOperationException($"Operator '{binary.Operator}' requires two 'int' operands.");
+            }
+        }
+
+        private void ValidateInvocation(InvocationExpression invocation, Dictionary<string, Symbol> symbols)
+        {
+            foreach (var argument in invocation.Arguments)
+            {
+                ValidateExpression(argument, symbols);
+            }
+
+            if (invocation.Target is MemberAccessExpression memberAccess && IsConsoleWriteLine(memberAccess))
+            {
+                return;
+            }
+
+            if (invocation.Target is not IdentifierExpression identifier || !_methods.TryGetValue(identifier.NameJa, out var method))
+            {
+                throw new InvalidOperationException($"Undefined method '{GetExpressionName(invocation.Target)}'.");
+            }
+            if (method.Parameters.Count != invocation.Arguments.Count)
+            {
+                throw new InvalidOperationException($"Method '{identifier.NameJa}' expects {method.Parameters.Count} arguments but received {invocation.Arguments.Count}.");
+            }
+
+            for (var index = 0; index < method.Parameters.Count; index++)
+            {
+                RequireAssignable(method.Parameters[index].Type, InferType(invocation.Arguments[index], symbols), $"argument {index + 1} of '{identifier.NameJa}'");
+            }
+            identifier.NameEn = method.NameEn;
+        }
+
+        private void ValidateMemberAccess(MemberAccessExpression memberAccess, Dictionary<string, Symbol> symbols)
+        {
+            if (IsConsoleWriteLine(memberAccess))
+            {
+                return;
+            }
+            ValidateExpression(memberAccess.Expression, symbols);
+        }
+
+        private static bool IsConsoleWriteLine(MemberAccessExpression memberAccess)
+        {
+            return memberAccess.Expression is IdentifierExpression identifier &&
+                identifier.NameJa == "コンソール" &&
+                (memberAccess.MemberName == "WriteLine" || memberAccess.MemberName == "一行表示する");
+        }
+
+        private string InferType(Expression expression, Dictionary<string, Symbol> symbols)
+        {
+            return expression switch
+            {
+                LiteralExpression literal when literal.Value is bool => "bool",
+                LiteralExpression literal when literal.Value is int => "int",
+                LiteralExpression literal when literal.Value is string => "string",
+                IdentifierExpression identifier when symbols.TryGetValue(identifier.NameJa, out var symbol) => symbol.Type,
+                BinaryExpression binary when binary.Operator is "==" or "!=" or "<" or ">" or "<=" or ">=" or "&&" or "||" => "bool",
+                BinaryExpression binary => InferType(binary.Left, symbols),
+                UnaryExpression unary when unary.Operator == "!" => "bool",
+                UnaryExpression unary => InferType(unary.Operand, symbols),
+                InvocationExpression invocation when invocation.Target is IdentifierExpression identifier && _methods.TryGetValue(identifier.NameJa, out var method) => method.ReturnType,
+                ElementAccessExpression elementAccess => InferType(elementAccess.ArrayExpression, symbols).TrimEnd('[', ']'),
+                ArrayLiteralExpression array => $"{array.ElementType}[]",
+                _ => "object"
+            };
+        }
+
+        private static void RequireAssignable(string expectedType, string actualType, string targetName)
+        {
+            if (!string.Equals(expectedType, actualType, StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException($"Type mismatch for '{targetName}': expected '{expectedType}' but was '{actualType}'.");
+            }
+        }
+
+        private static string GetExpressionName(Expression expression)
+        {
+            return expression is IdentifierExpression identifier ? identifier.NameJa : expression.GetType().Name;
+        }
+
+        private static string ResolveTargetName(string nameJa, string currentNameEn)
+        {
+            return string.IsNullOrEmpty(currentNameEn) ? nameJa : currentNameEn;
         }
 
         private void ResolveExpressionNames(Expression expression, IReadOnlyDictionary<string, string> names)
@@ -161,7 +360,7 @@ namespace ReMindParser
         /// 識別子の解決を行う
         /// スコープから変数名を検索し、見つからない場合はエラーを返す
         /// </summary>
-        public Symbol? ResolveIdentifier(string identifierName)
+        public Symbol ResolveIdentifier(string identifierName)
         {
             var symbol = _currentScope.LookupSymbol(identifierName);
             if (symbol != null)
@@ -240,7 +439,7 @@ namespace ReMindParser
         /// </summary>
         public string ResolveInvocation(InvocationExpression invocation)
         {
-            var targetText = invocation.Target.ToString();
+            var targetText = invocation.Target.ToString() ?? string.Empty;
             var resolvedTarget = targetText;
 
             if (invocation.Target is MemberAccessExpression memberAccess)
